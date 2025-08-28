@@ -6,7 +6,7 @@ from utils import df_to_image
 import os
 
 # URL public (ngrok/domain)
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://caeb71f95a4c.ngrok-free.app")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://api.render.com/deploy/srv-d2o038vfte5s7387988g?key=YNiNbFaXm6c")
 
 def handle_user_message(user_text: str):
     """

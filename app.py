@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, request, abort
 from linebot.v3.webhook import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
@@ -8,8 +10,11 @@ from linebot.v3.exceptions import InvalidSignatureError
 from handlers import handle_user_message
 
 # ====== CONFIG ======
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "herfNFzmF78yjleshKI+VnDR4VyynMY3KfOvn0Z2Nj/IP2LgshLBE7FS0+aO2PXc+s4FYpjEZ/4pKjU0l2rRNuBbCFds2rJIqZPdavYfikKJFw1iPRX8+nuDlWqf02AHUdrTT0mXMqstFkoT3nZ2RgdB04t89/1O/w1cDnyilFU=")
-LINE_CHANNEL_SECRET       = os.getenv("LINE_CHANNEL_SECRET",       "3e13e8971d902f02179e669510bc7d5f")
+# LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "herfNFzmF78yjleshKI+VnDR4VyynMY3KfOvn0Z2Nj/IP2LgshLBE7FS0+aO2PXc+s4FYpjEZ/4pKjU0l2rRNuBbCFds2rJIqZPdavYfikKJFw1iPRX8+nuDlWqf02AHUdrTT0mXMqstFkoT3nZ2RgdB04t89/1O/w1cDnyilFU=")
+# LINE_CHANNEL_SECRET       = os.getenv("LINE_CHANNEL_SECRET",       "3e13e8971d902f02179e669510bc7d5f")
+
+LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+LINE_CHANNEL_SECRET       = os.environ["LINE_CHANNEL_SECRET"]
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
