@@ -1,9 +1,10 @@
 setuptools>=65.5.1
 wheel
+
 Flask==3.0.3
 gunicorn==22.0.0
 line-bot-sdk==3.14.2
+
 pandas==1.5.3
-numpy==1.24.4
 pyarrow==10.0.1
 matplotlib==3.7.3
