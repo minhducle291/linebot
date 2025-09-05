@@ -25,7 +25,7 @@ def handle_user_message(user_text: str):
             store_number = int(match.group())
             df = pd.read_parquet("data.parquet")
             ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Mã siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
+            df = df[df["Mã siêu thị"] == store_number][["Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
             df = df.sort_values(by=["Trạng thái chia hàng", "Tên sản phẩm"])
             
             filename = f"table_{store_number}.png"

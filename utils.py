@@ -15,7 +15,7 @@ def df_to_image(df, outfile="static/table.png", title="Kết quả"):
         colLabels=df.columns,
         colLoc="center",
         cellLoc="left",
-        colWidths=[0.15, 0.4, 0.1, 0.1, 0.25],
+        colWidths=[0.45, 0.15, 0.15, 0.25],
         loc="upper center"
     )
     tbl.auto_set_font_size(False)
