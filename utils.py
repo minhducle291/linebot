@@ -39,7 +39,7 @@ def df_to_image(df, outfile="static/table.png", title="Kết quả"):
 def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
     if len(df) > 0:
         fig_h = 0.2 * len(df)
-        fig, ax = plt.subplots(figsize=(14, fig_h))
+        fig, ax = plt.subplots(figsize=(10, fig_h))
         ax.axis("off")
 
         ax.text(0.5, 1.02, title, ha="center", va="bottom", fontsize=13, weight="bold", transform=ax.transAxes)
@@ -49,7 +49,7 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
             colLabels=df.columns,
             colLoc="center",
             cellLoc="left",
-            colWidths=[0.2, 0.13, 0.13, 0.13, 0.13, 0.12, 0.12],
+            colWidths=[0.2, 0.1, 0.1, 0.1, 0.1, 0.11, 0.11],
             loc="upper center"
         )
         tbl.auto_set_font_size(False)
