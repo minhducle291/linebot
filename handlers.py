@@ -50,15 +50,15 @@ def handle_user_message(user_text: str):
             df = pd.read_parquet("data_nhapban.parquet")
             tu_ngay = df['Từ ngày'].iloc[0]
             den_ngay = df['Đến ngày'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","SL nhu cầu (KG)","SL lên PO (KG)","SL thực nhập (KG)","SL xuất bán (KG)","Tỉ lệ nhập/PO","Tỉ lệ bán/nhập"]]
-            df = df.sort_values(by=["SL thực nhập (KG)"], ascending=False)
+            df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập"]]
+            df = df.sort_values(by=["Nhập"], ascending=False)
             
             filename = f"table_kqkd_{store_number}.png"
             out_path = f"static/{filename}"
-            df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_number}\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
+            df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_number} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
 
             img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_number}:"))
+            messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_number} (đơn vị KG):"))
             #messages.append(ImageMessage(originalContentUrl=img_url, previewImageUrl=img_url))
             messages.append(
                 ImageMessage(

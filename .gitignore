@@ -1,1 +1,3 @@
 .env
+start_app.bat
+start_ngrok.bat
