@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 from urllib.parse import urljoin
-from linebot.v3.messaging import TextMessage, ImageMessage
+from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage
 from utils import df_to_image, df_nhapban_to_image
 import os
 
@@ -20,7 +20,7 @@ def handle_user_message(user_text: str):
         messages.append(TextMessage(text=f"Bạn vừa nhắn: {user_text}"))
 
     # Trường hợp 2: tin nhắn chứa '!' và có số => vẽ ảnh gửi
-    elif "/nhucau" in user_text:
+    elif "/thongtinchiahang" in user_text:
         match = re.search(r"\d+", user_text)
         if match:
             store_number = int(match.group())
@@ -43,14 +43,14 @@ def handle_user_message(user_text: str):
                 )
             )
 
-    elif "/kqkd" in user_text:
+    elif "/ketquabanhang" in user_text:
         match = re.search(r"\d+", user_text)
         if match:
             store_number = int(match.group())
             df = pd.read_parquet("data_nhapban.parquet")
             tu_ngay = df['Từ ngày'].iloc[0]
             den_ngay = df['Đến ngày'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập"]]
+            df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
             df = df.sort_values(by=["Nhập"], ascending=False)
             
             filename = f"table_kqkd_{store_number}.png"
@@ -69,6 +69,12 @@ def handle_user_message(user_text: str):
 
     # Trường hợp khác: trả text mặc định
     else:
-        messages.append(TextMessage(text="Hãy nhập lệnh + mã siêu thị để xem báo cáo!\nVí dụ:\n/nhucau 7300\n/kqkd 7300"))
+        messages.append(TextMessage(text="Hãy nhập /lệnh + mã siêu thị để xem báo cáo!\nVí dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300"))
+        messages.append(
+            StickerMessage(
+                package_id="6632",   # gói sticker
+                sticker_id="11825375"   # id sticker trong gói
+        )
+    )
 
     return messages

@@ -53,7 +53,7 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
             colLabels=df.columns,
             colLoc="center",
             cellLoc="left",
-            colWidths=[0.22, 0.1, 0.1, 0.1, 0.1, 0.12, 0.12],
+            colWidths=[0.22, 0.1, 0.1, 0.1, 0.1, 0.12, 0.12, 0.15],
             loc="upper center"
         )
         tbl.auto_set_font_size(False)
