@@ -1,5 +1,5 @@
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 import os
 from flask import Flask, request, abort
 from linebot.v3.webhook import WebhookHandler
