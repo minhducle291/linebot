@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage
 from utils import df_to_image, df_nhapban_to_image
 import os
+from datetime import datetime
 
 # URL public (ngrok/domain)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
@@ -29,7 +30,8 @@ def handle_user_message(user_text: str):
             df = df[df["Mã siêu thị"] == store_number][["Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
             df = df.sort_values(by=["Trạng thái chia hàng", "Tên sản phẩm"])
             
-            filename = f"table_{store_number}.png"
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"table_thongtinchiahang_{store_number}_{ts}.png"
             out_path = f"static/{filename}"
             df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_number}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
 
@@ -53,7 +55,8 @@ def handle_user_message(user_text: str):
             df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
             df = df.sort_values(by=["Nhập"], ascending=False)
             
-            filename = f"table_kqkd_{store_number}.png"
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"table_ketquabanhang_{store_number}_{ts}.png"
             out_path = f"static/{filename}"
             df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_number} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
 
