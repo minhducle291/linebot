@@ -1,7 +1,9 @@
 import re
+import hashlib
+import threading, time
 import pandas as pd
 from urllib.parse import urljoin
-from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage
+from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, PushMessageRequest
 from utils import df_to_image, df_nhapban_to_image
 import os
 from datetime import datetime
@@ -9,6 +11,19 @@ from datetime import datetime
 # URL public (ngrok/domain)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
 #PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://787e732a65b9.ngrok-free.app")
+
+def number_of_the_day():
+    # Chuỗi ngày, ví dụ '2025-09-25'
+    today = datetime.today().strftime("%Y-%m-%d")
+
+    # Băm ngày bằng md5 → cho ra chuỗi hex dài
+    h = hashlib.md5(today.encode()).hexdigest()
+
+    # Lấy 4 ký tự cuối, convert sang số
+    num = int(h[-4:], 16) % 100
+
+    return f"{num:02d}"  # đảm bảo luôn 2 chữ số
+
 
 def handle_user_message(user_text: str):
     """
@@ -20,6 +35,16 @@ def handle_user_message(user_text: str):
     if "@@" in user_text:
         messages.append(TextMessage(text=f"Bạn vừa nhắn: {user_text}"))
 
+    elif "/xinso" in user_text:
+        num = number_of_the_day()
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        gif_url = urljoin(PUBLIC_BASE_URL + "/", f"static/magic.gif?v={ts}")
+
+        messages.append(TextMessage(text="Người anh em chờ tôi xíu!"))
+        messages.append(ImageMessage(original_content_url=gif_url, preview_image_url=gif_url))
+        messages.append(TextMessage(text=f"Con số may mắn hôm nay là {num}"))
+        messages.append(StickerMessage(package_id="6325", sticker_id="10979924"))
+
     # Trường hợp 2: tin nhắn chứa '!' và có số => vẽ ảnh gửi
     elif "/thongtinchiahang" in user_text:
         match = re.search(r"\d+", user_text)
@@ -28,7 +53,7 @@ def handle_user_message(user_text: str):
             df = pd.read_parquet("data.parquet")
             ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
             df = df[df["Mã siêu thị"] == store_number][["Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
-            df = df.sort_values(by=["Trạng thái chia hàng", "Tên sản phẩm"])
+            #df = df.sort_values(by=["Trạng thái chia hàng", "Tên sản phẩm"])
             
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"table_thongtinchiahang_{store_number}_{ts}.png"
@@ -37,7 +62,6 @@ def handle_user_message(user_text: str):
 
             img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
             messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number} (theo đvt của sản phẩm):"))
-            #messages.append(ImageMessage(originalContentUrl=img_url, previewImageUrl=img_url))
             messages.append(
                 ImageMessage(
                     original_content_url=img_url,
