@@ -36,7 +36,7 @@ def handle_user_message(user_text: str):
             df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_number}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
 
             img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number}:"))
+            messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number} (theo đvt của sản phẩm):"))
             #messages.append(ImageMessage(originalContentUrl=img_url, previewImageUrl=img_url))
             messages.append(
                 ImageMessage(
