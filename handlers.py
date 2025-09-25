@@ -75,8 +75,8 @@ def handle_user_message(user_text: str):
         messages.append(TextMessage(text="Hãy nhập /lệnh + mã siêu thị để xem báo cáo!\nVí dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300"))
         messages.append(
             StickerMessage(
-                package_id="6632",   # gói sticker
-                sticker_id="11825375"   # id sticker trong gói
+                package_id="8522",   # gói sticker
+                sticker_id="16581271"   # id sticker trong gói
         )
     )
 

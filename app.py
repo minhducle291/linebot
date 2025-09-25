@@ -1,11 +1,12 @@
 # from dotenv import load_dotenv
 # load_dotenv()
 import os, time
+import random
 from flask import Flask, request, abort
 from urllib3.exceptions import ProtocolError
 from linebot.v3.webhook import WebhookHandler
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
-from linebot.v3.messaging import MessagingApi, ApiClient, Configuration, ReplyMessageRequest, PushMessageRequest
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, StickerMessageContent
+from linebot.v3.messaging import MessagingApi, ApiClient, Configuration, ReplyMessageRequest, StickerMessage
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging.exceptions import ApiException
 
@@ -100,6 +101,27 @@ def on_message(event: MessageEvent):
 
     # Gửi (reply-only). Nếu fail do token hết hạn -> chấp nhận rớt tin.
     safe_reply(event, reply_messages)
+
+@handler.add(MessageEvent, message=StickerMessageContent)
+def on_sticker(event: MessageEvent):
+    # Random sticker trong bộ 8522 (range 16581266–16581289)
+    sticker_id = str(random.randint(16581266, 16581289))
+
+    reply_msg = StickerMessage(
+        package_id="8522",
+        sticker_id=sticker_id
+    )
+
+    try:
+        messaging_api.reply_message(
+            ReplyMessageRequest(
+                replyToken=event.reply_token,
+                messages=[reply_msg]
+            )
+        )
+    except Exception as e:
+        print(f"[Reply sticker error] {e}")
+
 
 @app.route("/", methods=["GET"])
 def home():
