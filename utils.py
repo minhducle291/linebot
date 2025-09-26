@@ -2,7 +2,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
-import textwrap
 
 def df_to_image(df, outfile="static/table.png", title="Kết quả"):
     fig_h = len(df) * 0.2 + 1
@@ -65,12 +64,6 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
                 cell.set_facecolor("#4CAF50")
                 cell.set_text_props(color="white", weight="bold")
                 cell.set_height(0.5 / fig_h)
-            # elif r % 2 == 0:
-            #     cell.set_facecolor("#f5f5f5")
-            #     cell.set_height(0.35 / fig_h)
-            # elif r % 2 == 1:
-            #     cell.set_facecolor("#ffffff")
-            #     cell.set_height(0.35 / fig_h)
             else:
                 cell.set_facecolor("#f5f5f5" if r % 2 == 0 else "#ffffff")
                 cell.set_height(0.35 / fig_h)
