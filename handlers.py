@@ -76,7 +76,8 @@ def handle_user_message(user_text: str):
             tu_ngay = df['Từ ngày'].iloc[0]
             den_ngay = df['Đến ngày'].iloc[0]
             df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
-            df = df.sort_values(by=["Nhập"], ascending=False)
+            df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
+            df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
             
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"table_ketquabanhang_{store_number}_{ts}.png"
