@@ -9,8 +9,8 @@ import os
 from datetime import datetime
 
 # URL public (ngrok/domain)
-#PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
+#PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
 
 def number_of_the_day():
     # Chuỗi ngày, ví dụ '2025-09-25'
