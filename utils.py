@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -84,3 +86,47 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
         return outfile
     else:
         return print("DataFrame is empty, cannot create image.")
+    
+_R_EARTH_KM = 6371.0088
+
+def _haversine_km(lat1, lon1, lats2, lons2):
+    lat1 = np.radians(lat1); lon1 = np.radians(lon1)
+    lat2 = np.radians(lats2); lon2 = np.radians(lons2)
+    dlat = lat2 - lat1; dlon = lon2 - lon1
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2.0)**2
+    return 2*_R_EARTH_KM*np.arcsin(np.sqrt(a))
+
+class StoreLocator:
+    def __init__(self, path="bhx_stores.parquet"):
+        df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
+        df = df.rename(columns={'Mã siêu thị':'store_id', 'Vĩ độ':'lat', 'Kinh độ':'lon'})
+        df = df[['store_id','lat','lon']].dropna()
+        self.df = df
+        self._lats = df['lat'].to_numpy()
+        self._lons = df['lon'].to_numpy()
+
+    def nearest(self, lat, lon, k=3, max_km=None):
+        d = _haversine_km(lat, lon, self._lats, self._lons)
+        k = min(k, len(d))
+        idx = np.argpartition(d, kth=k-1)[:k]
+        idx = idx[np.argsort(d[idx])]
+        out = self.df.iloc[idx].copy()
+        out['distance_km'] = d[idx]
+        if max_km is not None:
+            out = out[out['distance_km'] <= max_km]
+        return out.reset_index(drop=True)
+
+# lazy singleton
+_LOCATOR = None
+def init_store_locator(path="location.parquet"):
+    global _LOCATOR
+    _LOCATOR = StoreLocator(path)
+
+def nearest_stores(lat, lon, k=3, max_km=30):
+    global _LOCATOR
+    if _LOCATOR is None:
+        try:
+            _LOCATOR = StoreLocator()  # mặc định đọc bhx_stores.parquet
+        except Exception:
+            return None
+    return _LOCATOR.nearest(lat, lon, k=k, max_km=max_km)

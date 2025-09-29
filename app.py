@@ -5,17 +5,20 @@ import random
 from flask import Flask, request, abort
 from urllib3.exceptions import ProtocolError
 from linebot.v3.webhook import WebhookHandler
-from linebot.v3.webhooks import MessageEvent, TextMessageContent, StickerMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, StickerMessageContent, LocationMessageContent
 from linebot.v3.messaging import MessagingApi, ApiClient, Configuration, ReplyMessageRequest, StickerMessage
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging.exceptions import ApiException
 
-from handlers import handle_user_message
+from handlers import handle_user_message, handle_location_message
+from utils import init_store_locator
 
 LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 LINE_CHANNEL_SECRET       = os.environ["LINE_CHANNEL_SECRET"]
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+init_store_locator(os.getenv("STORES_PATH", "location.parquet"))
 
 config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 api_client = ApiClient(config)
@@ -23,6 +26,7 @@ messaging_api = MessagingApi(api_client)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 CFG = Configuration(access_token=os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
+
 
 def safe_reply(event, messages) -> bool:
     """Reply 1 lần; nếu lỗi mạng (ProtocolError) thì retry 1 lần.
@@ -101,6 +105,48 @@ def on_message(event: MessageEvent):
 
     # Gửi (reply-only). Nếu fail do token hết hạn -> chấp nhận rớt tin.
     safe_reply(event, reply_messages)
+
+# @handler.add(MessageEvent, message=LocationMessageContent)
+# def on_location(event: MessageEvent):
+#     if event.reply_token == "00000000000000000000000000000000":
+#         return
+#     dc = getattr(event, "delivery_context", None)
+#     if dc and getattr(dc, "is_redelivery", False):
+#         print("[event] redelivery -> skip (reply-only mode)")
+#         return
+
+#     key = make_key(event)
+#     if key in _seen:
+#         return
+#     _seen.add(key)
+
+#     # gọi qua handlers
+#     lat = event.message.latitude
+#     lon = event.message.longitude
+#     reply_messages = handle_location_message(lat, lon)
+
+#     safe_reply(event, reply_messages)
+
+@handler.add(MessageEvent, message=LocationMessageContent)
+def on_location(event: MessageEvent):
+    # bỏ verify + redelivery + chống trùng (dùng y chang on_message)
+    if event.reply_token == "00000000000000000000000000000000":
+        return
+    dc = getattr(event, "delivery_context", None)
+    if dc and getattr(dc, "is_redelivery", False):
+        print("[event] redelivery -> skip (reply-only mode)")
+        return
+    key = make_key(event)
+    if key in _seen:
+        return
+    _seen.add(key)
+
+    lat = event.message.latitude
+    lon = event.message.longitude
+
+    reply_messages = handle_location_message(lat, lon, mode="ketquabanhang")
+    safe_reply(event, reply_messages)
+
 
 @handler.add(MessageEvent, message=StickerMessageContent)
 def on_sticker(event: MessageEvent):

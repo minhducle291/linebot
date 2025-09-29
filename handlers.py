@@ -3,14 +3,14 @@ import hashlib
 import threading, time
 import pandas as pd
 from urllib.parse import urljoin
-from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, PushMessageRequest
-from utils import df_to_image, df_nhapban_to_image
+from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, LocationMessage, QuickReply, QuickReplyItem, MessageAction
+from utils import df_to_image, df_nhapban_to_image, nearest_stores
 import os
 from datetime import datetime
 
 # URL public (ngrok/domain)
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
-#PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://787e732a65b9.ngrok-free.app")
+#PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-qer1.onrender.com")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
 
 def number_of_the_day():
     # Chuỗi ngày, ví dụ '2025-09-25'
@@ -23,7 +23,6 @@ def number_of_the_day():
     num = int(h[-4:], 16) % 100
 
     return f"{num:02d}"  # đảm bảo luôn 2 chữ số
-
 
 def handle_user_message(user_text: str):
     """
@@ -105,3 +104,76 @@ def handle_user_message(user_text: str):
     )
 
     return messages
+
+# def handle_location_message(lat: float, lon: float):
+#     messages = []
+#     res = nearest_stores(lat, lon, k=3, max_km=30)
+
+#     if res is None or len(res) == 0:
+#         messages.append(TextMessage(text="Không tìm thấy siêu thị trong bán kính 30km."))
+#         return messages
+
+#     top = res.iloc[0]
+#     gmap = f"https://maps.google.com/?q={top.lat},{top.lon}"
+
+#     lines = [
+#         f"Siêu thị gần bạn nhất: {int(top.store_id)} — {top.distance_km:.2f} km",
+#         f"Vĩ độ: {top.lat:.6f}, Kinh độ: {top.lon:.6f}",
+#         f"📍 Map: {gmap}",
+#         f"",
+#         f"Bonus 2 siêu thị gần kế:"
+#     ]
+#     for i in range(1, len(res)):
+#         r = res.iloc[i]
+#         lines.append(f"• #{i+1}: {int(r.store_id)} — {r.distance_km:.2f} km")
+
+#     messages.append(TextMessage(text="\n".join(lines)))
+#     messages.append(
+#         LocationMessage(
+#             title=f"BHX {top.store_id}",
+#             address=f"BHX {top.store_id}",
+#             latitude=float(top.lat),
+#             longitude=float(top.lon),
+#         )
+#     )
+#     return messages
+
+
+def handle_location_message(lat: float, lon: float, mode: str = "ketquabanhang"):
+    """
+    Trả về messages khi user gửi vị trí:
+      - Tự tìm ST gần nhất
+      - Gọi lại handle_user_message với /lenh <ma_st>
+    mode: "ketquabanhang" | "thongtinchiahang"
+    """
+    # 1) tìm ST gần nhất
+    res = nearest_stores(lat, lon, k=3, max_km=30)
+    if res is None or len(res) == 0:
+        return [TextMessage(text="Không tìm thấy siêu thị trong bán kính 30km.")]
+
+    top = res.iloc[0]
+    store_id = int(top.store_id)
+    km = float(top.distance_km)
+
+    # 2) chọn lệnh mặc định
+    if mode == "thongtinchiahang":
+        cmd = f"/thongtinchiahang {store_id}"
+    else:
+        cmd = f"/ketquabanhang {store_id}"
+
+    # 3) gọi lại handler text sẵn có
+    report_msgs = handle_user_message(cmd)  # tái dụng logic /thongtinchiahang & /ketquabanhang đã có
+    # (Các nhánh /thongtinchiahang và /ketquabanhang hiện có sẵn trong handle_user_message. :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4})
+
+    # 4) prepend thông báo + quick reply cho lệnh khác
+    gmap = f"https://maps.google.com/?q={top.lat},{top.lon}"
+    header = TextMessage(
+        text=f"🏬 Gần bạn nhất: ST {store_id} — {km:.2f} km\n📍 {gmap}",
+        quick_reply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label=f"Chia hàng ST {store_id}", text=f"/thongtinchiahang {store_id}")),
+                QuickReplyItem(action=MessageAction(label=f"Nhập-Bán ST {store_id}", text=f"/ketquabanhang {store_id}")),
+            ]
+        ),
+    )
+    return [header] + (report_msgs or [])
