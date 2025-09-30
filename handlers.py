@@ -51,8 +51,9 @@ def handle_user_message(user_text: str):
             store_number = int(match.group())
             df = pd.read_parquet("data.parquet")
             ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
-            #df = df.sort_values(by=["Trạng thái chia hàng", "Tên sản phẩm"])
+            df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
+            ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
+            df = df.drop(columns=["Tên siêu thị"])
             
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"table_thongtinchiahang_{store_number}_{ts}.png"
@@ -60,7 +61,7 @@ def handle_user_message(user_text: str):
             df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_number}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
 
             img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number} (theo đvt của sản phẩm):"))
+            messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
             messages.append(
                 ImageMessage(
                     original_content_url=img_url,
@@ -75,9 +76,11 @@ def handle_user_message(user_text: str):
             df = pd.read_parquet("data_nhapban.parquet")
             tu_ngay = df['Từ ngày'].iloc[0]
             den_ngay = df['Đến ngày'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
+            df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
             df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
             df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
+            ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
+            df = df.drop(columns=["Tên siêu thị"])
             
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"table_ketquabanhang_{store_number}_{ts}.png"
@@ -85,7 +88,7 @@ def handle_user_message(user_text: str):
             df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_number} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
 
             img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_number} (đơn vị KG):"))
+            messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_number}-{ten_sieu_thi} (đơn vị KG):"))
             #messages.append(ImageMessage(originalContentUrl=img_url, previewImageUrl=img_url))
             messages.append(
                 ImageMessage(
@@ -105,40 +108,6 @@ def handle_user_message(user_text: str):
     )
 
     return messages
-
-# def handle_location_message(lat: float, lon: float):
-#     messages = []
-#     res = nearest_stores(lat, lon, k=3, max_km=30)
-
-#     if res is None or len(res) == 0:
-#         messages.append(TextMessage(text="Không tìm thấy siêu thị trong bán kính 30km."))
-#         return messages
-
-#     top = res.iloc[0]
-#     gmap = f"https://maps.google.com/?q={top.lat},{top.lon}"
-
-#     lines = [
-#         f"Siêu thị gần bạn nhất: {int(top.store_id)} — {top.distance_km:.2f} km",
-#         f"Vĩ độ: {top.lat:.6f}, Kinh độ: {top.lon:.6f}",
-#         f"📍 Map: {gmap}",
-#         f"",
-#         f"Bonus 2 siêu thị gần kế:"
-#     ]
-#     for i in range(1, len(res)):
-#         r = res.iloc[i]
-#         lines.append(f"• #{i+1}: {int(r.store_id)} — {r.distance_km:.2f} km")
-
-#     messages.append(TextMessage(text="\n".join(lines)))
-#     messages.append(
-#         LocationMessage(
-#             title=f"BHX {top.store_id}",
-#             address=f"BHX {top.store_id}",
-#             latitude=float(top.lat),
-#             longitude=float(top.lon),
-#         )
-#     )
-#     return messages
-
 
 def handle_location_message(lat: float, lon: float, mode: str = "ketquabanhang"):
     """
