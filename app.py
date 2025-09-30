@@ -71,17 +71,6 @@ def make_key(event):
     return f"msg:{mid}" if mid else f"rtok:{event.reply_token}"
 
 
-# ===== ROUTES =====
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers.get("X-Line-Signature", "")
-    body = request.get_data(as_text=True)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-    return "OK"
-
 @handler.add(MessageEvent, message=TextMessageContent)
 def on_message(event: MessageEvent):
     # Bỏ sự kiện Verify từ console
@@ -168,6 +157,17 @@ def on_sticker(event: MessageEvent):
     except Exception as e:
         print(f"[Reply sticker error] {e}")
 
+
+# ===== ROUTES =====
+@app.route("/callback", methods=["GET", "POST"])
+def callback():
+    signature = request.headers.get("X-Line-Signature", "")
+    body = request.get_data(as_text=True)
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    return "OK"
 
 @app.route("/", methods=["GET"])
 def home():
