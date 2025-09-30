@@ -11,6 +11,9 @@ from datetime import datetime
 # URL public (ngrok/domain)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-s2qxb.ondigitalocean.app/")
 #PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
+NGANH_HANG = os.getenv("NGANH_HANG", "1254")
+NHU_CAU_PATH = os.getenv("NHU_CAU_PATH", f"data/data_{NGANH_HANG}_nhucau.parquet")
+NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parquet")
 
 def number_of_the_day():
     # Chuỗi ngày, ví dụ '2025-09-25'
@@ -49,7 +52,7 @@ def handle_user_message(user_text: str):
         match = re.search(r"\d+", user_text)
         if match:
             store_number = int(match.group())
-            df = pd.read_parquet("data.parquet")
+            df = pd.read_parquet(NHU_CAU_PATH)
             ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
             df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
             ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
@@ -73,7 +76,7 @@ def handle_user_message(user_text: str):
         match = re.search(r"\d+", user_text)
         if match:
             store_number = int(match.group())
-            df = pd.read_parquet("data_nhapban.parquet")
+            df = pd.read_parquet(NHAP_BAN_PATH)
             tu_ngay = df['Từ ngày'].iloc[0]
             den_ngay = df['Đến ngày'].iloc[0]
             df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]

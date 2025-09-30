@@ -97,7 +97,7 @@ def _haversine_km(lat1, lon1, lats2, lons2):
     return 2*_R_EARTH_KM*np.arcsin(np.sqrt(a))
 
 class StoreLocator:
-    def __init__(self, path="bhx_stores.parquet"):
+    def __init__(self, path="data/location.parquet"):
         df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
         df = df.rename(columns={'Mã siêu thị':'store_id', 'Vĩ độ':'lat', 'Kinh độ':'lon'})
         df = df[['store_id','lat','lon']].dropna()
@@ -118,7 +118,7 @@ class StoreLocator:
 
 # lazy singleton
 _LOCATOR = None
-def init_store_locator(path="location.parquet"):
+def init_store_locator(path="data/location.parquet"):
     global _LOCATOR
     _LOCATOR = StoreLocator(path)
 

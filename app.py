@@ -18,7 +18,7 @@ LINE_CHANNEL_SECRET       = os.environ["LINE_CHANNEL_SECRET"]
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
-init_store_locator(os.getenv("STORES_PATH", "location.parquet"))
+init_store_locator(os.getenv("STORES_PATH", "data/location.parquet"))
 
 config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 api_client = ApiClient(config)
@@ -95,26 +95,6 @@ def on_message(event: MessageEvent):
     # Gửi (reply-only). Nếu fail do token hết hạn -> chấp nhận rớt tin.
     safe_reply(event, reply_messages)
 
-# @handler.add(MessageEvent, message=LocationMessageContent)
-# def on_location(event: MessageEvent):
-#     if event.reply_token == "00000000000000000000000000000000":
-#         return
-#     dc = getattr(event, "delivery_context", None)
-#     if dc and getattr(dc, "is_redelivery", False):
-#         print("[event] redelivery -> skip (reply-only mode)")
-#         return
-
-#     key = make_key(event)
-#     if key in _seen:
-#         return
-#     _seen.add(key)
-
-#     # gọi qua handlers
-#     lat = event.message.latitude
-#     lon = event.message.longitude
-#     reply_messages = handle_location_message(lat, lon)
-
-#     safe_reply(event, reply_messages)
 
 @handler.add(MessageEvent, message=LocationMessageContent)
 def on_location(event: MessageEvent):
