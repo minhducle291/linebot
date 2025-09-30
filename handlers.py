@@ -9,8 +9,7 @@ import os
 from datetime import datetime
 
 # URL public (ngrok/domain)
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://linebot-s2qxb.ondigitalocean.app/")
-#PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
 NGANH_HANG = os.getenv("NGANH_HANG", "1254")
 NHU_CAU_PATH = os.getenv("NHU_CAU_PATH", f"data/data_{NGANH_HANG}_nhucau.parquet")
 NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parquet")
