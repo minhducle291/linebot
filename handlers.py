@@ -21,67 +21,69 @@ elif NGANH_HANG == "1236":
 elif NGANH_HANG == "1254":
     group_name = "Thủy sản"
 
-
 # region Kiểm tra cú pháp
 VALID_REPORTS = {"thongtinchiahang", "ketquabanhang"}
 df_subgroup = load_df_once(NHU_CAU_PATH)
-VALID_GROUPS = {
-    x.split("-")[0].strip()
-    for x in df_subgroup["Nhóm hàng"].dropna().astype(str).str.strip().unique()
-    if x.split("-")[0].strip().isdigit() and len(x.split("-")[0].strip()) == 4
-}
+VALID_GROUPS = set(df_subgroup['subgroup'].unique())
+df_sieuthi = pd.read_parquet('data/location.parquet')
+VALID_STORES = set(df_sieuthi['Mã siêu thị'].unique())
 
-def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
+def parse_user_message(user_text: str) -> tuple[dict | None, str | None]:
     txt_warnings = (
-        "Hãy nhập lệnh /tên báo cáo + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n"
-        "Ví dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300\n/thongtinchiahang 2844 7300\n/ketquabanhang 3020 7300"
+        "💡 Hướng dẫn xem báo cáo!\n"
+        " \n"
+        "👉 Hãy nhập theo cú pháp:\n"
+        "/tên_báo_cáo [tên_nhóm_hàng] mã_siêu_thị     (tên_nhóm_hàng có thể bỏ trống)\n"
+        " \n"
+        "📈 Danh sách báo cáo:"
+        f" {', '.join(sorted(map(str, VALID_REPORTS)))}\n"
+        "📚 Danh sách nhóm hàng:"
+        f" {', '.join(sorted(map(str, VALID_GROUPS)))}\n"
+        " \n"
+        "✔️ Ví dụ:\n"
+        "/thongtinchiahang 7300\n"
+        "/ketquabanhang 7300\n"
+        f"/thongtinchiahang {sorted(VALID_GROUPS)[0]} 7300\n"
+        f"/ketquabanhang {sorted(VALID_GROUPS)[1]} 7300"
     )
 
-    if not user_text or not user_text.strip():
+    if not user_text:
         return None, txt_warnings
 
     parts = user_text.strip().split()
-    if len(parts) not in (2, 3):
+    if len(parts) not in (2, 3):  # chỉ chấp nhận 2 hoặc 3 thành phần
         return None, txt_warnings
 
-    report_token = parts[0]
-    if not report_token.startswith("/"):
-        return None, txt_warnings
-
-    report = report_token[1:].lower()
+    # báo cáo
+    report = parts[0].lstrip("/").lower()
     if report not in VALID_REPORTS:
-        return None, f"Tên báo cáo không hợp lệ.\nDanh sách hợp lệ: ({', '.join(sorted(VALID_REPORTS))})"
+        return None, f"Tên báo cáo không hợp lệ. \nDanh sách hợp lệ: {', '.join(sorted(VALID_REPORTS))}"
 
-    # 2 phần: không có nhóm hàng
+    # nhóm hàng (có thể bỏ trống)
     if len(parts) == 2:
         group = None
         store_str = parts[1]
     else:
-        # 3 phần: có nhóm hàng
-        group = parts[1].strip()
-        if not (group.isdigit() and len(group) == 4 and group in VALID_GROUPS):
-            valid_str = ", ".join(sorted(VALID_GROUPS)) if VALID_GROUPS else "—"
-            return None, f"Nhóm hàng không hợp lệ.\nDanh sách hợp lệ: ({valid_str})"
+        group = parts[1]
+        if group not in VALID_GROUPS:
+            return None, f"Nhóm hàng không hợp lệ. \nDanh sách hợp lệ: {', '.join(sorted(map(str, VALID_GROUPS)))}"
         store_str = parts[2]
 
+    # siêu thị
     if not store_str.isdigit():
         return None, "Mã siêu thị phải là số!"
 
     store_id = int(store_str)
-
-    store_container = set(lst_store) if isinstance(lst_store, list) else lst_store
-    if store_id not in store_container:
-        return None, "Mã siêu thị không tồn tại! Vui lòng kiểm tra lại."
+    if store_id not in VALID_STORES:
+        return None, "Mã siêu thị không tồn tại!"
 
     return {"report": report, "group": group, "store_id": store_id}, None
 # endregion
 
 def handle_user_message(user_text: str):
     messages = []
-    df_store = pd.read_parquet('data/location.parquet')
-    lst_store = df_store['Mã siêu thị'].tolist()
-    parsed, error = parse_user_message(user_text, lst_store)
 
+    parsed, error = parse_user_message(user_text)
     if error:
         return [TextMessage(text=error)]
     # parsed["group"] có thể là None nếu user không nhập nhóm hàng
@@ -94,8 +96,8 @@ def handle_user_message(user_text: str):
         df = load_df_once(NHU_CAU_PATH)
         ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
         if group is not None:
-            df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Số chia hiện tại"]]
+            df = df[df['subgroup'] == group]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Trạng thái"]]
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
         
@@ -110,10 +112,11 @@ def handle_user_message(user_text: str):
 
     elif report == "ketquabanhang":
         df = load_df_once(NHAP_BAN_PATH)
+        df = df.rename(columns={'Trạng thái':'Số chia hiện tại'})
         tu_ngay = df['Từ ngày'].iloc[0]
         den_ngay = df['Đến ngày'].iloc[0]
         if group is not None:
-            df = df[df['Mã nhóm hàng'] == int(group)]
+            df = df[df['subgroup'] == group]
         df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
         df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
         df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
@@ -128,16 +131,6 @@ def handle_user_message(user_text: str):
         img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
         messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng {group_name}\ncủa siêu thị {store_id}-{ten_sieu_thi} (đơn vị KG):"))
         messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
-
-    # Trường hợp khác: trả text mặc định
-    else:
-        messages.append(TextMessage(text="Hãy nhập /lệnh + mã siêu thị để xem báo cáo!\nVí dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300"))
-        messages.append(
-            StickerMessage(
-                package_id="8522",   # gói sticker
-                sticker_id="16581271"   # id sticker trong gói
-        )
-    )
 
     return messages
 
