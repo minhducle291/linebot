@@ -16,56 +16,58 @@ NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parq
 VALID_REPORTS = {"thongtinchiahang", "ketquabanhang"}
 df_subgroup = load_df_once(NHU_CAU_PATH)
 VALID_GROUPS = {
-    int(x.split("-")[0])
+    x.split("-")[0].strip()
     for x in df_subgroup["Nhóm hàng"].dropna().astype(str).str.strip().unique()
-    if x.split("-")[0].isdigit() and len(x.split("-")[0]) == 4
+    if x.split("-")[0].strip().isdigit() and len(x.split("-")[0].strip()) == 4
 }
 
 def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
-    txt_warnings = "Hãy nhập lệnh /tên báo cáo + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n" \
-    "Ví dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300\n/thongtinchiahang 2844 7300\n/ketquabanhang 3020 7300"
+    txt_warnings = (
+        "Hãy nhập lệnh /tên báo cáo + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n"
+        "Ví dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300\n/thongtinchiahang 2844 7300\n/ketquabanhang 3020 7300"
+    )
 
     if not user_text or not user_text.strip():
         return None, txt_warnings
 
     parts = user_text.strip().split()
-    # cần 2 hoặc 3 phần
     if len(parts) not in (2, 3):
         return None, txt_warnings
-    
+
     report_token = parts[0]
     if not report_token.startswith("/"):
         return None, txt_warnings
 
     report = report_token[1:].lower()
     if report not in VALID_REPORTS:
-        return None, f"Tên báo cáo không hợp lệ.\nDanh sách hợp lệ: ({', '.join(VALID_REPORTS)})"
+        return None, f"Tên báo cáo không hợp lệ.\nDanh sách hợp lệ: ({', '.join(sorted(VALID_REPORTS))})"
 
-    # Trường hợp 2 phần: không có nhóm hàng
+    # 2 phần: không có nhóm hàng
     if len(parts) == 2:
-        store_str = parts[1]
         group = None
+        store_str = parts[1]
     else:
         # 3 phần: có nhóm hàng
-        group = parts[1].lower()
-        if group not in VALID_GROUPS:
-            return None, f"Nhóm hàng không hợp lệ.\nDanh sách hợp lệ: ({', '.join(VALID_GROUPS)})"
+        group = parts[1].strip()
+        if not (group.isdigit() and len(group) == 4 and group in VALID_GROUPS):
+            valid_str = ", ".join(sorted(VALID_GROUPS)) if VALID_GROUPS else "—"
+            return None, f"Nhóm hàng không hợp lệ.\nDanh sách hợp lệ: ({valid_str})"
         store_str = parts[2]
+
+    if not store_str.isdigit():
+        return None, "Mã siêu thị phải là số!"
 
     store_id = int(store_str)
 
-    # Tối ưu: chuyển lst_store thành set nếu là list dài
     store_container = set(lst_store) if isinstance(lst_store, list) else lst_store
     if store_id not in store_container:
         return None, "Mã siêu thị không tồn tại! Vui lòng kiểm tra lại."
 
-    # OK
     return {"report": report, "group": group, "store_id": store_id}, None
 # endregion
 
 def handle_user_message(user_text: str):
     messages = []
-
     df_store = pd.read_parquet('data/location.parquet')
     lst_store = df_store['Mã siêu thị'].tolist()
     parsed, error = parse_user_message(user_text, lst_store)
