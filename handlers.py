@@ -8,9 +8,19 @@ from cache import load_df_once
 
 # URL public (ngrok/domain)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
-NGANH_HANG = os.getenv("NGANH_HANG", "1254")
+NGANH_HANG = os.getenv("NGANH_HANG", "1235")
 NHU_CAU_PATH = os.getenv("NHU_CAU_PATH", f"data/data_{NGANH_HANG}_nhucau.parquet")
 NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parquet")
+
+if NGANH_HANG == "1234":
+    group_name = "Rau củ trứng"
+elif NGANH_HANG == "1235":
+    group_name = "Trái cây"
+elif NGANH_HANG == "1236":
+    group_name = "Thịt"
+elif NGANH_HANG == "1254":
+    group_name = "Thủy sản"
+
 
 # region Kiểm tra cú pháp
 VALID_REPORTS = {"thongtinchiahang", "ketquabanhang"}
@@ -85,17 +95,17 @@ def handle_user_message(user_text: str):
         ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
         if group is not None:
             df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Trạng thái chia hiện tại"]]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Số chia hiện tại"]]
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
         
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"table_thongtinchiahang_{store_id}_{ts}.png"
         out_path = f"static/{filename}"
-        df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_id}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
+        df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng {group_name} ST: {store_id}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
 
         img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-        messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_id}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
+        messages.append(TextMessage(text=f"Đây là bảng chia hàng {group_name}\ncủa siêu thị {store_id}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
         messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
 
     elif report == "ketquabanhang":
@@ -104,8 +114,8 @@ def handle_user_message(user_text: str):
         den_ngay = df['Đến ngày'].iloc[0]
         if group is not None:
             df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Trạng thái chia hiện tại"]]
-        df = df.sort_values(by=["Nhập","Trạng thái chia hiện tại"], ascending=False)
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
+        df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
         df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
@@ -113,10 +123,10 @@ def handle_user_message(user_text: str):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"table_ketquabanhang_{store_id}_{ts}.png"
         out_path = f"static/{filename}"
-        df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_id} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
+        df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng {group_name} ST: {store_id} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
 
         img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-        messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_id}-{ten_sieu_thi} (đơn vị KG):"))
+        messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng {group_name}\ncủa siêu thị {store_id}-{ten_sieu_thi} (đơn vị KG):"))
         messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
 
     # Trường hợp khác: trả text mặc định

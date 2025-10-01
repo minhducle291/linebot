@@ -7,7 +7,7 @@ import os
 
 def df_to_image(df, outfile="static/table.png", title="Kết quả"):
     fig_h = len(df) * 0.2 + 1
-    fig, ax = plt.subplots(figsize=(9.5, fig_h))
+    fig, ax = plt.subplots(figsize=(9, fig_h))
     ax.axis("off")
 
     ax.text(0.5, 1.02, title, ha="center", va="bottom", fontsize=13, weight="bold", transform=ax.transAxes)
@@ -17,7 +17,7 @@ def df_to_image(df, outfile="static/table.png", title="Kết quả"):
         colLabels=df.columns,
         colLoc="center",
         cellLoc="left",
-        colWidths=[0.45, 0.15, 0.15, 0.3],
+        colWidths=[0.45, 0.15, 0.15, 0.25],
         loc="upper center"
     )
     tbl.auto_set_font_size(False)
