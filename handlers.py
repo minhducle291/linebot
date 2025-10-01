@@ -83,7 +83,7 @@ def handle_user_message(user_text: str):
         ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
         if group is not None:
             df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hiện tại"]]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Trạng thái chia hiện tại"]]
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
         
