@@ -86,7 +86,9 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
         return outfile
     else:
         return print("DataFrame is empty, cannot create image.")
-    
+
+
+
 _R_EARTH_KM = 6371.0088
 
 def _haversine_km(lat1, lon1, lats2, lons2):

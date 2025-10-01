@@ -1,12 +1,10 @@
-import re
-import hashlib
-import threading, time
+import re, os, hashlib
 import pandas as pd
 from urllib.parse import urljoin
-from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, LocationMessage, QuickReply, QuickReplyItem, MessageAction
+from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, QuickReply, QuickReplyItem, MessageAction
 from utils import df_to_image, df_nhapban_to_image, nearest_stores
-import os
 from datetime import datetime
+from cache import load_df_once
 
 # URL public (ngrok/domain)
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
@@ -14,90 +12,120 @@ NGANH_HANG = os.getenv("NGANH_HANG", "1254")
 NHU_CAU_PATH = os.getenv("NHU_CAU_PATH", f"data/data_{NGANH_HANG}_nhucau.parquet")
 NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parquet")
 
-def number_of_the_day():
-    # Chuỗi ngày, ví dụ '2025-09-25'
-    today = datetime.today().strftime("%Y-%m-%d")
+# region Kiểm tra cú pháp
+VALID_REPORTS = {"thongtinchiahang", "ketquabanhang"}
+df_subgroup = load_df_once(NHU_CAU_PATH)
+VALID_GROUPS = {
+    int(x.split("-")[0])
+    for x in df_subgroup["Nhóm hàng"].dropna().astype(str).str.strip().unique()
+    if x.split("-")[0].isdigit() and len(x.split("-")[0]) == 4
+}
 
-    # Băm ngày bằng md5 → cho ra chuỗi hex dài
-    h = hashlib.md5(today.encode()).hexdigest()
+def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
+    """
+    Cú pháp hợp lệ:
+      1) /ten_bao_cao ma_sieu_thi
+      2) /ten_bao_cao nhom_hang ma_sieu_thi
 
-    # Lấy 4 ký tự cuối, convert sang số
-    num = int(h[-4:], 16) % 100
+    - ten_bao_cao ∈ {thongtinchiahang, ketquabanhang}
+    - nhom_hang (optional) ∈ {cabien, canuocngot, haisan}
+    - ma_sieu_thi: 3–5 chữ số, và phải có trong lst_store
+    """
+    if not user_text or not user_text.strip():
+        return None, "Tin nhắn trống. Cú pháp: /ten_bao_cao [nhom_hang] ma_sieu_thi"
 
-    return f"{num:02d}"  # đảm bảo luôn 2 chữ số
+    parts = user_text.strip().split()
+    # cần 2 hoặc 3 phần
+    if len(parts) not in (2, 3):
+        return None, "Sai cấu trúc. Cú pháp: /ten_bao_cao [nhom_hang] ma_sieu_thi"
+
+    report_token = parts[0]
+    if not report_token.startswith("/"):
+        return None, "Thiếu dấu '/' trước tên báo cáo. Ví dụ: /thongtinchiahang"
+
+    report = report_token[1:].lower()
+    if report not in VALID_REPORTS:
+        return None, f"Tên báo cáo không hợp lệ. Hợp lệ: {', '.join(VALID_REPORTS)}"
+
+    # Trường hợp 2 phần: không có nhóm hàng
+    if len(parts) == 2:
+        store_str = parts[1]
+        group = None
+    else:
+        # 3 phần: có nhóm hàng
+        group = parts[1].lower()
+        if group not in VALID_GROUPS:
+            return None, f"Nhóm hàng không hợp lệ. Hợp lệ: {', '.join(VALID_GROUPS)}"
+        store_str = parts[2]
+
+    # Check mã siêu thị: 3-5 ký tự digit
+    if not (store_str.isdigit() and 3 <= len(store_str) <= 5):
+        return None, "Mã siêu thị phải là số dài 3-5 ký tự (vd: 735, 1024)."
+
+    store_id = int(store_str)
+
+    # Tối ưu: chuyển lst_store thành set nếu là list dài
+    store_container = set(lst_store) if isinstance(lst_store, list) else lst_store
+    if store_id not in store_container:
+        return None, "Mã siêu thị không nằm trong danh sách cho phép."
+
+    # OK
+    return {"report": report, "group": group, "store_id": store_id}, None
+# endregion
 
 def handle_user_message(user_text: str):
-    """
-    Trả về list các message (TextMessage, ImageMessage, ...) tùy theo nội dung user_text
-    """
     messages = []
 
-    # Trường hợp 1: tin nhắn chứa '@@' => trả text
-    if "@@" in user_text:
-        messages.append(TextMessage(text=f"Bạn vừa nhắn: {user_text}"))
+    df_store = pd.read_parquet('data/location.parquet')
+    lst_store = df_store['Mã siêu thị'].tolist()
+    parsed, error = parse_user_message(user_text, lst_store)
 
-    elif "/xinso" in user_text:
-        num = number_of_the_day()
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        gif_url = urljoin(PUBLIC_BASE_URL + "/", f"static/magic.gif?v={ts}")
+    if error:
+        return [TextMessage(text=error)]
+    # parsed["group"] có thể là None nếu user không nhập nhóm hàng
+    report = parsed["report"]
+    group  = parsed["group"]
+    store_id  = parsed["store_id"]
 
-        messages.append(TextMessage(text="Người anh em chờ tôi xíu!"))
-        messages.append(ImageMessage(original_content_url=gif_url, preview_image_url=gif_url))
-        messages.append(TextMessage(text=f"Con số may mắn hôm nay là {num}"))
-        messages.append(StickerMessage(package_id="6325", sticker_id="10979924"))
 
-    # Trường hợp 2: tin nhắn chứa '!' và có số => vẽ ảnh gửi
-    elif "/thongtinchiahang" in user_text:
-        match = re.search(r"\d+", user_text)
-        if match:
-            store_number = int(match.group())
-            df = pd.read_parquet(NHU_CAU_PATH)
-            ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
-            ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
-            df = df.drop(columns=["Tên siêu thị"])
-            
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"table_thongtinchiahang_{store_number}_{ts}.png"
-            out_path = f"static/{filename}"
-            df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_number}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
+    if report == "thongtinchiahang":
+        df = load_df_once(NHU_CAU_PATH)
+        ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
+        if group is not None:
+            df = df[df['Mã nhóm hàng'] == int(group)]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
+        ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
+        df = df.drop(columns=["Tên siêu thị"])
+        
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"table_thongtinchiahang_{store_id}_{ts}.png"
+        out_path = f"static/{filename}"
+        df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng thủy sản ST: {store_id}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
 
-            img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_number}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
-            messages.append(
-                ImageMessage(
-                    original_content_url=img_url,
-                    preview_image_url=img_url
-                )
-            )
+        img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
+        messages.append(TextMessage(text=f"Đây là bảng chia hàng thủy sản cho siêu thị {store_id}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
+        messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
 
-    elif "/ketquabanhang" in user_text:
-        match = re.search(r"\d+", user_text)
-        if match:
-            store_number = int(match.group())
-            df = pd.read_parquet(NHAP_BAN_PATH)
-            tu_ngay = df['Từ ngày'].iloc[0]
-            den_ngay = df['Đến ngày'].iloc[0]
-            df = df[df["Mã siêu thị"] == store_number][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
-            df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
-            df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
-            ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
-            df = df.drop(columns=["Tên siêu thị"])
-            
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"table_ketquabanhang_{store_number}_{ts}.png"
-            out_path = f"static/{filename}"
-            df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_number} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
+    elif report == "ketquabanhang":
+        df = load_df_once(NHAP_BAN_PATH)
+        tu_ngay = df['Từ ngày'].iloc[0]
+        den_ngay = df['Đến ngày'].iloc[0]
+        if group is not None:
+            df = df[df['Mã nhóm hàng'] == int(group)]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
+        df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
+        df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
+        ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
+        df = df.drop(columns=["Tên siêu thị"])
+        
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"table_ketquabanhang_{store_id}_{ts}.png"
+        out_path = f"static/{filename}"
+        df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng thủy sản ST: {store_id} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
 
-            img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-            messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_number}-{ten_sieu_thi} (đơn vị KG):"))
-            #messages.append(ImageMessage(originalContentUrl=img_url, previewImageUrl=img_url))
-            messages.append(
-                ImageMessage(
-                    original_content_url=img_url,
-                    preview_image_url=img_url
-                )
-            )
+        img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
+        messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng thủy sản cho siêu thị {store_id}-{ten_sieu_thi} (đơn vị KG):"))
+        messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
 
     # Trường hợp khác: trả text mặc định
     else:

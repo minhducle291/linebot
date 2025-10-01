@@ -1,5 +1,5 @@
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 import os, time
 import random
 from flask import Flask, request, abort
@@ -17,16 +17,12 @@ LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 LINE_CHANNEL_SECRET       = os.environ["LINE_CHANNEL_SECRET"]
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
-
 init_store_locator(os.getenv("STORES_PATH", "data/location.parquet"))
-
 config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 api_client = ApiClient(config)
 messaging_api = MessagingApi(api_client)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
 CFG = Configuration(access_token=os.environ["LINE_CHANNEL_ACCESS_TOKEN"])
-
 
 def safe_reply(event, messages) -> bool:
     """Reply 1 lần; nếu lỗi mạng (ProtocolError) thì retry 1 lần.
