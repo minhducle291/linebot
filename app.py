@@ -135,17 +135,7 @@ def on_sticker(event: MessageEvent):
 
 
 # ===== ROUTES =====
-@app.route(f"/callback-1254", methods=["GET", "POST"])
-def callback():
-    signature = request.headers.get("X-Line-Signature", "")
-    body = request.get_data(as_text=True)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-    return "OK"
-
-@app.route(f"/callback-1234", methods=["GET", "POST"])
+@app.route(f"/callback", methods=["GET", "POST"])
 def callback():
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data(as_text=True)
