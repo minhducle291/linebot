@@ -22,7 +22,7 @@ VALID_GROUPS = {
 }
 
 def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
-    txt_warnings = "Hãy nhập /lệnh + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n" \
+    txt_warnings = "Hãy nhập lệnh /tên báo cáo + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n" \
     "Ví dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300\n/thongtinchiahang 2844 7300\n/ketquabanhang 3020 7300"
 
     if not user_text or not user_text.strip():
@@ -39,7 +39,7 @@ def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
 
     report = report_token[1:].lower()
     if report not in VALID_REPORTS:
-        return None, f"Tên báo cáo không hợp lệ. Hợp lệ: {', '.join(VALID_REPORTS)}"
+        return None, f"Tên báo cáo không hợp lệ.\nDanh sách hợp lệ: ({', '.join(VALID_REPORTS)})"
 
     # Trường hợp 2 phần: không có nhóm hàng
     if len(parts) == 2:
@@ -49,7 +49,7 @@ def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
         # 3 phần: có nhóm hàng
         group = parts[1].lower()
         if group not in VALID_GROUPS:
-            return None, f"Nhóm hàng không hợp lệ. Hợp lệ: {', '.join(VALID_GROUPS)}"
+            return None, f"Nhóm hàng không hợp lệ.\nDanh sách hợp lệ: ({', '.join(VALID_GROUPS)})"
         store_str = parts[2]
 
     store_id = int(store_str)
