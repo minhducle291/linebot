@@ -22,26 +22,20 @@ VALID_GROUPS = {
 }
 
 def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
-    """
-    Cú pháp hợp lệ:
-      1) /ten_bao_cao ma_sieu_thi
-      2) /ten_bao_cao nhom_hang ma_sieu_thi
+    txt_warnings = "Hãy nhập /lệnh + [mã nhóm hàng] + mã siêu thị để xem báo cáo! (mã nhóm hàng có thể không điền)\n" \
+    "Ví dụ:\n/thongtinchiahang 7300\n/ketquabanhang 7300\n/thongtinchiahang 2844 7300\n/ketquabanhang 3020 7300"
 
-    - ten_bao_cao ∈ {thongtinchiahang, ketquabanhang}
-    - nhom_hang (optional) ∈ {cabien, canuocngot, haisan}
-    - ma_sieu_thi: 3–5 chữ số, và phải có trong lst_store
-    """
     if not user_text or not user_text.strip():
-        return None, "Tin nhắn trống. Cú pháp: /ten_bao_cao [nhom_hang] ma_sieu_thi"
+        return None, txt_warnings
 
     parts = user_text.strip().split()
     # cần 2 hoặc 3 phần
     if len(parts) not in (2, 3):
-        return None, "Sai cấu trúc. Cú pháp: /ten_bao_cao [nhom_hang] ma_sieu_thi"
-
+        return None, txt_warnings
+    
     report_token = parts[0]
     if not report_token.startswith("/"):
-        return None, "Thiếu dấu '/' trước tên báo cáo. Ví dụ: /thongtinchiahang"
+        return None, txt_warnings
 
     report = report_token[1:].lower()
     if report not in VALID_REPORTS:
@@ -58,16 +52,12 @@ def parse_user_message(user_text: str, lst_store: list[int] | set[int]):
             return None, f"Nhóm hàng không hợp lệ. Hợp lệ: {', '.join(VALID_GROUPS)}"
         store_str = parts[2]
 
-    # Check mã siêu thị: 3-5 ký tự digit
-    if not (store_str.isdigit() and 3 <= len(store_str) <= 5):
-        return None, "Mã siêu thị phải là số dài 3-5 ký tự (vd: 735, 1024)."
-
     store_id = int(store_str)
 
     # Tối ưu: chuyển lst_store thành set nếu là list dài
     store_container = set(lst_store) if isinstance(lst_store, list) else lst_store
     if store_id not in store_container:
-        return None, "Mã siêu thị không nằm trong danh sách cho phép."
+        return None, "Mã siêu thị không tồn tại! Vui lòng kiểm tra lại."
 
     # OK
     return {"report": report, "group": group, "store_id": store_id}, None
@@ -93,7 +83,7 @@ def handle_user_message(user_text: str):
         ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
         if group is not None:
             df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hàng"]]
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số mua","Trạng thái chia hiện tại"]]
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
         
@@ -112,8 +102,8 @@ def handle_user_message(user_text: str):
         den_ngay = df['Đến ngày'].iloc[0]
         if group is not None:
             df = df[df['Mã nhóm hàng'] == int(group)]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
-        df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
+        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Trạng thái chia hiện tại"]]
+        df = df.sort_values(by=["Nhập","Trạng thái chia hiện tại"], ascending=False)
         df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
         ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
         df = df.drop(columns=["Tên siêu thị"])
