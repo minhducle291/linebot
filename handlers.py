@@ -9,19 +9,13 @@ from report import report_thongtinchiahang, report_ketquabanhang
 from config import NHU_CAU_PATH, NHAP_BAN_PATH
 
 # ===== CẤU HÌNH HIỂN THỊ BÁO CÁO =====
-# REPORTS_DISPLAY = [
-#     {"id": "thongtinchiahang", "title": "Thông tin chia hàng"},
-#     {"id": "ketquabanhang",    "title": "Kết quả bán hàng"}
-# ]
 REPORTS_DISPLAY = [
-    {"id": "ketquabanhang",    "title": "[Báo cáo] Kết quả bán hàng"}
+    {"id": "thongtinchiahang", "title": "Thông tin chia hàng"},
+    {"id": "ketquabanhang",    "title": "Kết quả bán hàng"}
 ]
 
-# REPORT_HANDLERS = {
-#     "thongtinchiahang": report_thongtinchiahang,
-#     "ketquabanhang":    report_ketquabanhang
-# }
 REPORT_HANDLERS = {
+    "thongtinchiahang": report_thongtinchiahang,
     "ketquabanhang":    report_ketquabanhang
 }
 
