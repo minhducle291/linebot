@@ -80,7 +80,7 @@ def on_location(event: MessageEvent):
 def callback():
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data(as_text=True)
-    print(f"[callback] signature? {bool(signature)} | body_len={len(body)}")
+    #print(f"[callback] signature? {bool(signature)} | body_len={len(body)}")
     try:
         handler.handle(body, signature)
     except Exception as e:
@@ -94,7 +94,6 @@ def home():
 
 @app.get("/health")
 def health_check():
-    print("[health] check OK")
     return "Bot is healthy", 200
 
 if __name__ == "__main__":

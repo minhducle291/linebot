@@ -4,11 +4,12 @@ from linebot.v3.messaging import TextMessage, ImageMessage
 from urllib.parse import urljoin
 from config import PUBLIC_BASE_URL, NHU_CAU_PATH, NHAP_BAN_PATH
 from utils import df_nhucau_to_image, df_nhapban_to_image
+from cache import load_df_once
 
 
 def report_thongtinchiahang(store_id: str, cat_id: str, cat_name: str, group: str):
     messages = []
-    df = pd.read_parquet(NHU_CAU_PATH)
+    df = load_df_once(NHU_CAU_PATH)
     ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
 
     df = df[df['Mã ngành hàng'] == int(cat_id)]
@@ -33,14 +34,15 @@ def report_thongtinchiahang(store_id: str, cat_id: str, cat_name: str, group: st
 
 def report_ketquabanhang(store_id: str, cat_id: str, cat_name: str, group: str):
     messages = []
-    df = pd.read_parquet(NHAP_BAN_PATH)
+    df = load_df_once(NHAP_BAN_PATH)
     df = df.rename(columns={'Trạng thái':'Số chia hiện tại'})
     tu_ngay = df['Từ ngày'].iloc[0]
     den_ngay = df['Đến ngày'].iloc[0]
 
-    df = df[df['Mã ngành hàng'] == int(cat_id)]
-    if group == "Xem tất cả nhóm": pass
-    else: df = df[df['Mã nhóm hàng'] == int(group.split("-", 1)[0])]
+    if group == "Xem tất cả nhóm":
+        df = df[df['Mã ngành hàng'] == int(cat_id)]
+    else:
+        df = df[df['Mã nhóm hàng'] == int(group.split("-", 1)[0])]
 
     df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
     df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
