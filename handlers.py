@@ -1,174 +1,145 @@
-import re, os, hashlib
 import pandas as pd
-from urllib.parse import urljoin
-from linebot.v3.messaging import TextMessage, ImageMessage, StickerMessage, QuickReply, QuickReplyItem, MessageAction
-from utils import df_to_image, df_nhapban_to_image, nearest_stores
-from datetime import datetime
-from cache import load_df_once
+from urllib.parse import parse_qs
+# LINE SDK v3
+from linebot.v3.messaging import TextMessage, FlexMessage
+from linebot.v3.messaging.models import FlexContainer  # dùng để ép dict -> FlexContainer
 
-# URL public (ngrok/domain)
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://finer-mantis-allowed.ngrok-free.app")
-NGANH_HANG = os.getenv("NGANH_HANG", "1235")
-NHU_CAU_PATH = os.getenv("NHU_CAU_PATH", f"data/data_{NGANH_HANG}_nhucau.parquet")
-NHAP_BAN_PATH = os.getenv("NHAP_BAN_PATH", f"data/data_{NGANH_HANG}_nhapban.parquet")
+from utils import build_flex_categories, build_flex_report_group, nearest_stores
+from report import report_thongtinchiahang, report_ketquabanhang
+from config import NHU_CAU_PATH, NHAP_BAN_PATH
 
-if NGANH_HANG == "1234":
-    group_name = "Rau củ trứng"
-elif NGANH_HANG == "1235":
-    group_name = "Trái cây"
-elif NGANH_HANG == "1236":
-    group_name = "Thịt"
-elif NGANH_HANG == "1254":
-    group_name = "Thủy sản"
+# ===== CẤU HÌNH HIỂN THỊ BÁO CÁO =====
+# REPORTS_DISPLAY = [
+#     {"id": "thongtinchiahang", "title": "Thông tin chia hàng"},
+#     {"id": "ketquabanhang",    "title": "Kết quả bán hàng"}
+# ]
+REPORTS_DISPLAY = [
+    {"id": "ketquabanhang",    "title": "[Báo cáo] Kết quả bán hàng"}
+]
 
-# region Kiểm tra cú pháp
-VALID_REPORTS = {"thongtinchiahang", "ketquabanhang"}
-df_subgroup = load_df_once(NHU_CAU_PATH)
-VALID_GROUPS = set(df_subgroup['subgroup'].unique())
-df_sieuthi = pd.read_parquet('data/location.parquet')
-VALID_STORES = set(df_sieuthi['Mã siêu thị'].unique())
+# REPORT_HANDLERS = {
+#     "thongtinchiahang": report_thongtinchiahang,
+#     "ketquabanhang":    report_ketquabanhang
+# }
+REPORT_HANDLERS = {
+    "ketquabanhang":    report_ketquabanhang
+}
 
-def parse_user_message(user_text: str) -> tuple[dict | None, str | None]:
-    txt_warnings = (
-        "💡 Hướng dẫn xem báo cáo!\n"
-        " \n"
-        "👉 Hãy nhập theo cú pháp:\n"
-        "/tên_báo_cáo [tên_nhóm_hàng] mã_siêu_thị     (tên_nhóm_hàng có thể bỏ trống)\n"
-        " \n"
-        "📈 Danh sách báo cáo:"
-        f" {', '.join(sorted(map(str, VALID_REPORTS)))}\n"
-        "📚 Danh sách nhóm hàng:"
-        f" {', '.join(sorted(map(str, VALID_GROUPS)))}\n"
-        " \n"
-        "✔️ Ví dụ:\n"
-        "/thongtinchiahang 7300\n"
-        "/ketquabanhang 7300\n"
-        f"/thongtinchiahang {sorted(VALID_GROUPS)[0]} 7300\n"
-        f"/ketquabanhang {sorted(VALID_GROUPS)[1]} 7300"
-    )
+CATEGORIES = [
+    {"id": 1234,    "title": "Rau Củ Các Loại"},
+    {"id": 1235,  "title": "Trái Cây Các Loại"},
+    {"id": 1236, "title": "Thịt Gia Cầm Gia Súc Các Loại"},
+    {"id": 1254,  "title": "Thủy Hải Sản Các Loại"},
+]
+# ===== NHÓM HÀNG  =====
+VALID_GROUPS = []
+def get_groups_for_category(cat_id: int):
+    df_nhucau = pd.read_parquet(NHU_CAU_PATH)
+    df_nhucau = df_nhucau[df_nhucau['Mã ngành hàng'] == int(cat_id)]
+    subgroups = df_nhucau['Nhóm hàng'].dropna().astype(str).unique().tolist()
+    subgroups.sort()
+    subgroups.append("Xem tất cả nhóm")
+    return subgroups
 
-    if not user_text:
-        return None, txt_warnings
+#====== DỮ LIỆU SIÊU THỊ ======
+df_sieuthi = pd.read_parquet(NHAP_BAN_PATH)
+lst_sieuthi = df_sieuthi['Mã siêu thị'].unique().tolist()
 
-    parts = user_text.strip().split()
-    if len(parts) not in (2, 3):  # chỉ chấp nhận 2 hoặc 3 thành phần
-        return None, txt_warnings
-
-    # báo cáo
-    report = parts[0].lstrip("/").lower()
-    if report not in VALID_REPORTS:
-        return None, f"Tên báo cáo không hợp lệ. \nDanh sách hợp lệ: {', '.join(sorted(VALID_REPORTS))}"
-
-    # nhóm hàng (có thể bỏ trống)
-    if len(parts) == 2:
-        group = None
-        store_str = parts[1]
-    else:
-        group = parts[1]
-        if group not in VALID_GROUPS:
-            return None, f"Nhóm hàng không hợp lệ. \nDanh sách hợp lệ: {', '.join(sorted(map(str, VALID_GROUPS)))}"
-        store_str = parts[2]
-
-    # siêu thị
-    if not store_str.isdigit():
-        return None, "Mã siêu thị phải là số!"
-
-    store_id = int(store_str)
-    if store_id not in VALID_STORES:
-        return None, "Mã siêu thị không tồn tại!"
-
-    return {"report": report, "group": group, "store_id": store_id}, None
-# endregion
-
+# ====== XỬ LÝ TEXT ======
 def handle_user_message(user_text: str):
-    messages = []
+    user_text = (user_text or "").strip()
+    # ---------- (1) TEXT COMMANDS ----------
+    # Bạn bổ sung các nhánh elif khác ở đây: 'help', 'menu', 'version', ...
+    if user_text.lower() == "ping":
+        return [TextMessage(text="pong")]
 
-    parsed, error = parse_user_message(user_text)
-    if error:
-        return [TextMessage(text=error)]
-    # parsed["group"] có thể là None nếu user không nhập nhóm hàng
-    report = parsed["report"]
-    group  = parsed["group"]
-    store_id  = parsed["store_id"]
+    # nếu là text khác mà KHÔNG phải toàn số -> coi như không phải mã siêu thị
+    if not user_text.isdigit():
+        return [TextMessage(text="Gửi [Mã siêu thị] để chọn báo cáo nhé.")]
 
+    # ---------- (2) NUMBER = MÃ SIÊU THỊ ----------
+    store_id = int(user_text)
+    if store_id not in lst_sieuthi:
+        return [TextMessage(text="⚠️ [Mã siêu thị] không tồn tại! Vui lòng kiểm tra lại!")]
 
-    if report == "thongtinchiahang":
-        df = load_df_once(NHU_CAU_PATH)
-        ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
-        if group is not None:
-            df = df[df['subgroup'] == group]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Tên sản phẩm","Min chia","Số chia","Trạng thái"]]
-        ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
-        df = df.drop(columns=["Tên siêu thị"])
-        
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"table_thongtinchiahang_{store_id}_{ts}.png"
-        out_path = f"static/{filename}"
-        df_to_image(df, outfile=out_path, title=f"Thông tin chia hàng {group_name} ST: {store_id}\n(dữ liệu cập nhật ngày {ngay_cap_nhat})")
+    # Flex: CHỌN NGÀNH HÀNG (4 nút)
+    cat_flex = build_flex_categories(store_id, CATEGORIES, include_display_text=False)
+    return [FlexMessage(altText="Chọn ngành hàng", contents=FlexContainer.from_dict(cat_flex))]
 
-        img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-        messages.append(TextMessage(text=f"Đây là bảng chia hàng {group_name}\ncủa siêu thị {store_id}-{ten_sieu_thi} (theo đvt của sản phẩm):"))
-        messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
-
-    elif report == "ketquabanhang":
-        df = load_df_once(NHAP_BAN_PATH)
-        df = df.rename(columns={'Trạng thái':'Số chia hiện tại'})
-        tu_ngay = df['Từ ngày'].iloc[0]
-        den_ngay = df['Đến ngày'].iloc[0]
-        if group is not None:
-            df = df[df['subgroup'] == group]
-        df = df[df["Mã siêu thị"] == int(store_id)][["Tên siêu thị","Nhóm sản phẩm","Nhu cầu","PO","Nhập","Bán","% Nhập/PO","% Bán/Nhập","Số chia hiện tại"]]
-        df = df.sort_values(by=["Nhập","Số chia hiện tại"], ascending=False)
-        df = df.drop_duplicates(subset=["Nhóm sản phẩm"], keep="first")
-        ten_sieu_thi = df['Tên siêu thị'].iloc[0] if not df.empty else "N/A"
-        df = df.drop(columns=["Tên siêu thị"])
-        
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"table_ketquabanhang_{store_id}_{ts}.png"
-        out_path = f"static/{filename}"
-        df_nhapban_to_image(df, outfile=out_path, title=f"Thông tin nhập - bán hàng {group_name} ST: {store_id} (đơn vị KG)\n(dữ liệu từ {tu_ngay} đến {den_ngay})")
-
-        img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-        messages.append(TextMessage(text=f"Đây là bảng thông tin nhập - bán hàng {group_name}\ncủa siêu thị {store_id}-{ten_sieu_thi} (đơn vị KG):"))
-        messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
-
-    return messages
-
-def handle_location_message(lat: float, lon: float, mode: str = "ketquabanhang"):
+def handle_postback(data: str):
     """
-    Trả về messages khi user gửi vị trí:
-      - Tự tìm ST gần nhất
-      - Gọi lại handle_user_message với /lenh <ma_st>
-    mode: "ketquabanhang" | "thongtinchiahang"
+    B2: a=category.select  -> đọc parquet theo 'Mã ngành hàng' -> build Flex nhóm hàng
+    B3: a=report_group.select -> xác nhận + gọi report handler tương ứng
     """
-    # 1) tìm ST gần nhất
-    res = nearest_stores(lat, lon, k=3, max_km=30)
-    if res is None or len(res) == 0:
-        return [TextMessage(text="Không tìm thấy siêu thị trong bán kính 30km.")]
+    qs = parse_qs(data or "")
+    action = (qs.get("a", [""])[0])
 
-    top = res.iloc[0]
-    store_id = int(top.store_id)
-    km = float(top.distance_km)
+    # ===== BƯỚC 2: USER CHỌN NGÀNH =====
+    if action == "category.select":
+        store_id = int(qs.get("store", ["0"])[0] or 0)
+        cat_id   = int(qs.get("cat",   ["0"])[0] or 0)
 
-    # 2) chọn lệnh mặc định
-    if mode == "thongtinchiahang":
-        cmd = f"/thongtinchiahang {store_id}"
-    else:
-        cmd = f"/ketquabanhang {store_id}"
+        VALID_GROUPS = get_groups_for_category(cat_id)
 
-    # 3) gọi lại handler text sẵn có
-    report_msgs = handle_user_message(cmd)  # tái dụng logic /thongtinchiahang & /ketquabanhang đã có
-    # (Các nhánh /thongtinchiahang và /ketquabanhang hiện có sẵn trong handle_user_message. :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4})
+        # Build Flex "chọn báo cáo & nhóm hàng" (dùng cùng groups cho mọi report)
+        groups_by_report = {r["id"]: VALID_GROUPS for r in REPORTS_DISPLAY}
+        grp_flex = build_flex_report_group(
+            store_id=store_id,
+            reports=REPORTS_DISPLAY,
+            groups_by_report=groups_by_report,
+            groups_per_bubble=7,
+            include_display_text=False,   # không đẩy displayText vào khung chat
+            cat_id=cat_id                 # giữ cat_id để truyền qua postback
+        )
+        return [FlexMessage(altText="Chọn báo cáo & nhóm hàng",
+                            contents=FlexContainer.from_dict(grp_flex))]
 
-    # 4) prepend thông báo + quick reply cho lệnh khác
-    gmap = f"https://maps.google.com/?q={top.lat},{top.lon}"
-    header = TextMessage(
-        text=f"🏬 Gần bạn nhất: ST {store_id} — {km:.2f} km\n📍 {gmap}",
-        quick_reply=QuickReply(
-            items=[
-                QuickReplyItem(action=MessageAction(label=f"Chia hàng ST {store_id}", text=f"/thongtinchiahang {store_id}")),
-                QuickReplyItem(action=MessageAction(label=f"Nhập-Bán ST {store_id}", text=f"/ketquabanhang {store_id}")),
-            ]
-        ),
+    # ===== BƯỚC 3: USER CHỌN NHÓM TRONG 1 BÁO CÁO =====
+    if action == "report_group.select":
+        store  = qs.get("store",  [""])[0]
+        report = qs.get("report", [""])[0]
+        cat_id = qs.get("cat",    [""])[0]
+        group  = qs.get("group",  [""])[0]
+        
+        # Lấy title hiển thị đẹp
+        # title = next((r["title"] for r in REPORTS_DISPLAY if r["id"] == report), report)
+        cat_name = next((c["title"] for c in CATEGORIES if str(c["id"]) == str(cat_id)), cat_id)
+        messages = []
+
+        # Gọi đúng report handler (đã map trong REPORT_HANDLERS)
+        if report in REPORT_HANDLERS:
+            handler_func = REPORT_HANDLERS[report]
+            messages.extend(handler_func(store_id=int(store), cat_id=cat_id, cat_name=cat_name, group=group))
+        else:
+            messages.append(TextMessage(text=f"⚠️ Chưa có handler cho báo cáo: {report}"))
+
+        return messages
+
+    # ===== KHÁC =====
+    return [TextMessage(text="Lỗi xử lý postback. Vui lòng thử lại sau!")]
+
+def handle_location_message(lat: float, lon: float):
+    """
+    Nhận vị trí người dùng -> tìm siêu thị gần nhất -> trả thông báo + Flex chọn ngành hàng.
+    """
+    try:
+        df = nearest_stores(lat, lon, k=1, max_km=30)
+    except Exception:
+        return [TextMessage(text="⚠️ Không đọc được dữ liệu vị trí. Vui lòng thử lại sau.")]
+
+    if df is None or getattr(df, "empty", True):
+        return [TextMessage(text="❌ Không tìm thấy siêu thị trong bán kính 30km.")]
+
+    raw_sid = df.iloc[0]["store_id"]
+    distance = df.iloc[0]["distance_km"]
+    store_id = str(int(float(raw_sid)))
+
+    # bước 1: báo siêu thị gần nhất
+    confirm_msg = TextMessage(
+        text=f"📍 Siêu thị gần nhất: {store_id} (cách khoảng {distance:.1f} km)."
     )
-    return [header] + (report_msgs or [])
+
+    # bước 2: gọi lại flow chọn ngành hàng
+    flex_msgs = handle_user_message(store_id)
+
+    return [confirm_msg] + flex_msgs

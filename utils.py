@@ -5,7 +5,154 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
 
-def df_to_image(df, outfile="static/table.png", title="Kết quả"):
+def build_flex_categories(
+    store_id: int,
+    categories: list[dict],
+    include_display_text: bool = False,
+) -> dict:
+    """
+    Trả về 1 bubble chứa 4 nút (ngành hàng).
+    - categories: [{ "id": "fresh", "title": "Tươi sống" }, ...] (4 mục)
+    """
+    buttons = []
+    for c in categories:
+        action = {
+            "type": "postback",
+            "label": c.get("title", c["id"]),
+            "data": f"a=category.select&store={store_id}&cat={c['id']}",
+        }
+        if include_display_text:
+            action["displayText"] = f"Ngành: {c.get('title', c['id'])}"
+
+        buttons.append({
+            "type": "button",
+            "style": "secondary",
+            "height": "sm",
+            "action": action
+        })
+
+    bubble = {
+        "type": "bubble",
+        "size": "kilo",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "md",
+            "contents": [
+                {"type": "text", "text": "Chọn ngành hàng", "weight": "bold", "size": "md"},
+                {"type": "text", "text": f"Siêu thị: {store_id}", "size": "xs", "color": "#666666"},
+                {"type": "separator", "margin": "sm"},
+                {"type": "box", "layout": "vertical", "spacing": "sm", "contents": buttons}
+            ]
+        },
+        "footer": {
+            "type": "box", "layout": "horizontal", "contents": [
+                {"type": "text", "text": "Trang 1/1", "size": "xs", "color": "#999999", "align": "center"}
+            ]
+        }
+    }
+    return {"type": "carousel", "contents": [bubble]}
+
+def build_flex_report_group(
+    store_id,
+    reports,
+    groups_by_report,
+    groups_per_bubble=6,
+    include_display_text=False,
+    cat_id=None
+):
+    """
+    Tạo Flex carousel gồm nhiều bubble — mỗi bubble = 1 báo cáo, chia thành nhiều trang nhóm hàng.
+    store_id: mã siêu thị
+    reports: danh sách báo cáo (REPORTS_DISPLAY)
+    groups_by_report: dict {report_id: [group list]}
+    groups_per_bubble: số nhóm mỗi bubble
+    include_display_text: có hiển thị displayText khi bấm hay không
+    cat_id: mã ngành hàng (được giữ để truyền qua postback)
+    """
+    bubbles = []
+
+    for report in reports:
+        report_id = report["id"]
+        report_title = report["title"]
+
+        groups = groups_by_report.get(report_id, [])
+        if not groups:
+            continue
+
+        # Chia groups thành nhiều trang (bubble)
+        for page_idx in range(0, len(groups), groups_per_bubble):
+            page_groups = groups[page_idx:page_idx + groups_per_bubble]
+
+            contents = []
+            for group in page_groups:
+                group_label = str(group)
+
+                action_data = (
+                    f"a=report_group.select"
+                    f"&store={store_id}"
+                    f"&report={report_id}"
+                    f"&group={group}"
+                    f"&cat={cat_id or ''}"
+                )
+
+                action_obj = {
+                    "type": "postback",
+                    "label": group_label,
+                    "data": action_data,
+                }
+
+                if include_display_text:
+                    action_obj["displayText"] = f"{report_title} • Nhóm {group_label}"
+
+                contents.append({
+                    "type": "button",
+                    "style": "secondary",
+                    "height": "sm",
+                    "action": action_obj
+                })
+
+            bubble = {
+                "type": "bubble",
+                "size": "kilo",
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "md",
+                    "contents": [
+                        {"type": "text", "text": report_title, "weight": "bold", "size": "md", "wrap": True},
+                        {"type": "text", "text": f"Siêu thị: {store_id}", "size": "xs", "color": "#666666"},
+                        {"type": "separator", "margin": "sm"},
+                        {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents},
+                    ]
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": f"Trang {page_idx//groups_per_bubble + 1}/{-(-len(groups)//groups_per_bubble)}",
+                            "size": "xs",
+                            "color": "#999999",
+                            "align": "center",
+                        }
+                    ]
+                }
+            }
+
+            bubbles.append(bubble)
+
+    if not bubbles:
+        return {}
+
+    return {
+        "type": "carousel",
+        "contents": bubbles
+    }
+
+
+def df_nhucau_to_image(df, outfile="static/table.png", title="Kết quả"):
     fig_h = len(df) * 0.2 + 1
     fig, ax = plt.subplots(figsize=(9, fig_h))
     ax.axis("off")
@@ -88,7 +235,7 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
         return print("DataFrame is empty, cannot create image.")
 
 
-
+# region Location / Nearest Store
 _R_EARTH_KM = 6371.0088
 
 def _haversine_km(lat1, lon1, lats2, lons2):
@@ -100,7 +247,7 @@ def _haversine_km(lat1, lon1, lats2, lons2):
 
 class StoreLocator:
     def __init__(self, path="data/location.parquet"):
-        df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
+        df = pd.read_parquet(path)
         df = df.rename(columns={'Mã siêu thị':'store_id', 'Vĩ độ':'lat', 'Kinh độ':'lon'})
         df = df[['store_id','lat','lon']].dropna()
         self.df = df
@@ -132,3 +279,4 @@ def nearest_stores(lat, lon, k=3, max_km=30):
         except Exception:
             return None
     return _LOCATOR.nearest(lat, lon, k=k, max_km=max_km)
+# endregion
