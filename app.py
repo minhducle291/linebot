@@ -1,8 +1,13 @@
 import os
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
-from linebot.v3.webhooks import MessageEvent, TextMessageContent, PostbackEvent, LocationMessageContent
+from linebot.v3.messaging import (
+    Configuration, ApiClient, MessagingApi,
+    ReplyMessageRequest, TextMessage
+)
+from linebot.v3.webhooks import (
+    MessageEvent, TextMessageContent, PostbackEvent, LocationMessageContent
+)
 from handlers import handle_user_message, handle_postback, handle_location_message
 
 # ===== LOAD ENV =====
@@ -31,19 +36,29 @@ def reply(event, messages):
             )
         print("[reply] OK")
     except Exception as e:
-        # In ra lỗi từ LINE SDK (hay gặp nhất: invalid/expired replyToken)
+        # hay gặp nhất: invalid/expired replyToken (do redelivery hoặc reply trễ)
         print(f"[reply][ERROR] {e}")
 
+def _is_redelivery(event) -> bool:
+    """Bỏ qua redelivery để tránh reply lần 2 gây Invalid reply token."""
+    return bool(getattr(getattr(event, "delivery_context", None), "is_redelivery", False))
 
+# ===== HANDLERS =====
 @handler.add(MessageEvent, message=TextMessageContent)
 def on_message(event: MessageEvent):
-    text = event.message.text
+    if _is_redelivery(event):
+        print("[skip] redelivery message -> ignore")
+        return "OK"
+    text = (event.message.text or "").strip()
     print(f"[message] from={getattr(getattr(event,'source',None),'user_id',None)} text={text!r}")
     msgs = handle_user_message(text)
     return reply(event, msgs)
 
 @handler.add(PostbackEvent)
 def on_postback(event: PostbackEvent):
+    if _is_redelivery(event):
+        print("[skip] redelivery postback -> ignore")
+        return "OK"
     data = getattr(getattr(event, "postback", None), "data", "") or ""
     print(f"[postback] data={data}")
     msgs = handle_postback(data)
@@ -51,13 +66,16 @@ def on_postback(event: PostbackEvent):
 
 @handler.add(MessageEvent, message=LocationMessageContent)
 def on_location(event: MessageEvent):
+    if _is_redelivery(event):
+        print("[skip] redelivery location -> ignore")
+        return "OK"
     lat = event.message.latitude
     lon = event.message.longitude
     print(f"[location] user={getattr(getattr(event,'source',None),'user_id',None)} lat={lat}, lon={lon}")
-
     msgs = handle_location_message(lat, lon)
     return reply(event, msgs)
 
+# ===== ROUTES =====
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers.get("X-Line-Signature", "")
@@ -76,6 +94,7 @@ def home():
 
 @app.get("/health")
 def health_check():
+    print("[health] check OK")
     return "Bot is healthy", 200
 
 if __name__ == "__main__":
