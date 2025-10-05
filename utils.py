@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib
+from linebot.v3.messaging import FlexMessage, FlexContainer
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
@@ -151,6 +152,64 @@ def build_flex_report_group(
         "contents": bubbles
     }
 
+def build_flex_text_message(
+    text: str,
+    *,
+    header_text: str | None = None,
+    bg: str = "#E0F2FE",
+    fg: str = "#0369A1",
+    size: str = "md",
+    weight: str = "regular",
+    header_fg: str = "#0C4A6E",
+) -> FlexMessage:
+    """
+    Bubble body liền mạch bo 4 góc. 
+    Nếu có header_text -> hiển thị text nhỏ phía trên, cùng nền, cùng khung.
+    """
+    body_contents = []
+
+    # --- Header inline (nằm chung body) ---
+    if header_text:
+        body_contents.append({
+            "type": "text",
+            "text": str(header_text),
+            "weight": "bold",
+            "size": "sm",
+            "color": header_fg,
+            "align": "center",
+            "wrap": True,
+            "margin": "none"
+        })
+
+    # --- Nội dung chính ---
+    body_contents.append({
+        "type": "text",
+        "text": str(text),
+        "weight": weight,
+        "size": size,
+        "color": fg,
+        "align": "center",
+        "wrap": True,
+        "margin": "md" if header_text else "none"
+    })
+
+    bubble = {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": bg,
+            "cornerRadius": "md",
+            "paddingAll": "md",
+            "contents": body_contents
+        }
+    }
+
+    flex = {"type": "carousel", "contents": [bubble]}
+    return FlexMessage(
+        altText=(header_text or text),
+        contents=FlexContainer.from_dict(flex)
+    )
 
 def df_nhucau_to_image(df, outfile="static/table.png", title="Kết quả"):
     fig_h = len(df) * 0.2 + 1
