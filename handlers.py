@@ -20,9 +20,9 @@ REPORT_HANDLERS = {
 }
 
 CATEGORIES = [
-    {"id": 1234,    "title": "Rau Củ Các Loại"},
+    {"id": 1234,  "title": "Rau Củ Các Loại"},
     {"id": 1235,  "title": "Trái Cây Các Loại"},
-    {"id": 1236, "title": "Thịt Gia Cầm Gia Súc Các Loại"},
+    {"id": 1236,  "title": "Thịt Gia Cầm Gia Súc Các Loại"},
     {"id": 1254,  "title": "Thủy Hải Sản Các Loại"},
 ]
 # ===== NHÓM HÀNG  =====
@@ -50,12 +50,13 @@ def handle_user_message(user_text: str):
 
     # nếu là text khác mà KHÔNG phải toàn số -> coi như không phải mã siêu thị
     if not user_text.isdigit():
-        return [TextMessage(text="Gửi [Mã siêu thị] để chọn báo cáo nhé.")]
-
+        text = "Hãy gửi [Mã siêu thị] hoặc chia sẻ [Vị trí] của bạn để xem báo cáo nhé!"
+        return [build_flex_text_message(text, bg="#B5F5B6", fg="#0A0A0A", header_fg="#18583A", size="md", weight="regular", header_text="Hướng dẫn")]
     # ---------- (2) NUMBER = MÃ SIÊU THỊ ----------
     store_id = int(user_text)
     if store_id not in lst_sieuthi:
-        return [TextMessage(text="⚠️ [Mã siêu thị] không tồn tại! Vui lòng kiểm tra lại!")]
+        text = "[Mã siêu thị] không tồn tại!\nVui lòng kiểm tra lại!"
+        return [build_flex_text_message(text, bg="#72180B", fg="#FFFFFF", header_fg="#FFFFFF", size="md", weight="bold", header_text="⚠️ Cảnh báo")]
 
     # Flex: CHỌN NGÀNH HÀNG (4 nút)
     cat_flex = build_flex_categories(store_id, CATEGORIES, include_display_text=False)
