@@ -1,10 +1,13 @@
+from flask.cli import load_dotenv
 import numpy as np
 import pandas as pd
 import matplotlib
 from linebot.v3.messaging import FlexMessage, FlexContainer
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import os
+from __future__ import annotations
+import os, sys
+import msal
 
 def build_flex_categories(
     store_id: int,
@@ -293,7 +296,6 @@ def df_nhapban_to_image(df, outfile="static/table.png", title="Kết quả"):
     else:
         return print("DataFrame is empty, cannot create image.")
 
-
 # region Location / Nearest Store
 _R_EARTH_KM = 6371.0088
 
@@ -339,3 +341,77 @@ def nearest_stores(lat, lon, k=3, max_km=30):
             return None
     return _LOCATOR.nearest(lat, lon, k=k, max_km=max_km)
 # endregion
+
+def run_dax(dax_query: str, *, return_as: str = "df"):
+    TENANT_ID     = os.getenv("PBI_TENANT_ID")
+    CLIENT_ID     = os.getenv("PBI_CLIENT_ID")
+    CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET")
+    WORKSPACE     = os.getenv("PBI_WORKSPACE")
+    DATASET       = os.getenv("PBI_DATASET")
+    DLL_PATH = os.getenv(
+        "ADOMD_DLL_PATH",
+        os.path.join(os.path.dirname(__file__), "lib", "Microsoft.AnalysisServices.AdomdClient.dll")
+    )
+
+    if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET, WORKSPACE, DATASET]):
+        raise RuntimeError("Thiếu ENV: PBI_TENANT_ID / PBI_CLIENT_ID / PBI_CLIENT_SECRET / PBI_WORKSPACE / PBI_DATASET")
+
+    # 1) Nạp ADOMD.NET DLL trước khi import clr
+    dll_dir = os.path.dirname(DLL_PATH)
+    if hasattr(os, "add_dll_directory"):
+        os.add_dll_directory(dll_dir)
+    else:
+        os.environ["PATH"] = dll_dir + os.pathsep + os.environ.get("PATH", "")
+    if dll_dir not in sys.path:
+        sys.path.append(dll_dir)
+
+    import clr  # type: ignore
+    from os.path import exists
+    if not exists(DLL_PATH):
+        raise FileNotFoundError(f"Không thấy DLL tại: {DLL_PATH}")
+
+    try:
+        clr.AddReference("Microsoft.AnalysisServices.AdomdClient")
+    except Exception:
+        # pythonnet 3.x: fallback nạp theo đường dẫn cụ thể
+        from System.Reflection import Assembly  # type: ignore
+        Assembly.LoadFile(DLL_PATH)
+        clr.AddReference("Microsoft.AnalysisServices.AdomdClient")
+
+    from Microsoft.AnalysisServices.AdomdClient import AdomdConnection, AdomdCommand  # type: ignore
+
+    # 2) Lấy access token (Service Principal)
+    AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+    SCOPE     = ["https://analysis.windows.net/powerbi/api/.default"]
+    app = msal.ConfidentialClientApplication(
+        client_id=CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
+    )
+    res = app.acquire_token_for_client(scopes=SCOPE)
+    if "access_token" not in res:
+        raise RuntimeError(res.get("error_description") or str(res))
+    token = res["access_token"]
+
+    # 3) Kết nối XMLA + chạy DAX
+    conn_str = (
+        f"Data Source=powerbi://api.powerbi.com/v1.0/myorg/{WORKSPACE};"
+        f"Initial Catalog={DATASET};"
+        f"Persist Security Info=True;"
+        f"Password={token}"
+    )
+    conn = AdomdConnection(conn_str)
+    conn.Open()
+    try:
+        cmd = AdomdCommand(dax_query, conn)
+        reader = cmd.ExecuteReader()
+        cols = [reader.GetName(i) for i in range(reader.FieldCount)]
+        rows = []
+        while reader.Read():
+            rows.append([reader.GetValue(i) for i in range(reader.FieldCount)])
+        reader.Close()
+    finally:
+        conn.Close()
+
+    df = pd.DataFrame(rows, columns=cols)
+    if return_as == "records":
+        return df.to_dict(orient="records")
+    return df
