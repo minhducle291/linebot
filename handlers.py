@@ -4,10 +4,9 @@ from urllib.parse import parse_qs
 from linebot.v3.messaging import TextMessage, FlexMessage
 from linebot.v3.messaging.models import FlexContainer  # dùng để ép dict -> FlexContainer
 
-from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message, run_dax
+from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message
 from report import report_thongtinchiahang, report_ketquabanhang
 from config import NHU_CAU_PATH, NHAP_BAN_PATH
-from dax import dax
 
 # ===== CẤU HÌNH HIỂN THỊ BÁO CÁO =====
 REPORTS_DISPLAY = [
@@ -45,9 +44,6 @@ def handle_user_message(user_text: str):
     user_text = (user_text or "").strip()
     # ---------- (1) TEXT COMMANDS ----------
     # Bạn bổ sung các nhánh elif khác ở đây: 'help', 'menu', 'version', ...
-    if user_text == "dax":
-        text = run_dax(dax).head(30).to_string(index=False)
-        return [TextMessage(text=text)]
 
     if user_text.lower() == "ping":
         text = "This is Flex Message Simulator. Thank you for adding me as a friend.\nHãy nhập vào từ khoá thông tin cần hỗ trợ theo gợi ý bên dưới nhé"

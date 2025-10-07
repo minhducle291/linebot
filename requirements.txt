@@ -9,6 +9,3 @@ numpy==1.26.4
 pandas==1.5.3
 pyarrow==10.0.1
 matplotlib==3.7.3
-
-msal==1.28.0
-pythonnet==3.0.3
