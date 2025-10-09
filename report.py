@@ -3,7 +3,7 @@ from datetime import datetime
 from linebot.v3.messaging import TextMessage, ImageMessage
 from urllib.parse import urljoin
 from config import PUBLIC_BASE_URL, NHU_CAU_PATH, NHAP_BAN_PATH
-from utils import df_nhucau_to_image, df_nhapban_to_image
+from utils import df_nhucau_to_image, df_nhapban_to_image, build_flex_text_message
 from cache import load_df_once
 
 
@@ -27,7 +27,8 @@ def report_thongtinchiahang(store_id: str, cat_id: str, cat_name: str, group: st
     df_nhucau_to_image(df, outfile=out_path, title=f"Thông tin chia hàng của siêu thị {store_id}-{ten_sieu_thi}\n{group_label}\n(ngày cập nhật: {ngay_cap_nhat})")
 
     img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-    messages.append(TextMessage(text=f"Thông tin chia hàng - ST: {store_id} - {group_label}"))
+    text = f"Thông tin chia hàng - ST: {store_id}\n{group_label}"
+    messages.append(build_flex_text_message(text, bg="#761414", fg="#FFFFFF", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
 
@@ -57,6 +58,6 @@ def report_ketquabanhang(store_id: str, cat_id: str, cat_name: str, group: str):
     df_nhapban_to_image(df, outfile=out_path, title=f"Báo cáo kết quả bán hàng của siêu thị {store_id}-{ten_sieu_thi}\n{group_label}\n(đơn vị KG) (dữ liệu từ {tu_ngay} đến {den_ngay})")
 
     img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-    messages.append(TextMessage(text=f"Kết quả bán hàng - ST: {store_id} - {group_label}"))
+    messages.append(build_flex_text_message(f"Kết quả bán hàng - ST: {store_id}\n{group_label}", bg="#761414", fg="#FFFFFF", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
