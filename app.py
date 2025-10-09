@@ -11,8 +11,8 @@ from linebot.v3.webhooks import (
 from handlers import handle_user_message, handle_postback, handle_location_message
 
 # ===== LOAD ENV =====
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "")
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
 

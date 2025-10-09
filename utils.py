@@ -48,7 +48,7 @@ def build_flex_categories(
         },
         "footer": {
             "type": "box", "layout": "horizontal", "contents": [
-                {"type": "text", "text": "Trang 1/1", "size": "xs", "color": "#999999", "align": "center"}
+                {"type": "text", "text": "Team mua chia Fresh ®️", "size": "xs", "color": "#999999", "align": "center"}
             ]
         }
     }
@@ -76,6 +76,7 @@ def build_flex_report_group(
     for report in reports:
         report_id = report["id"]
         report_title = report["title"]
+        report_decription = report["decription"]
 
         groups = groups_by_report.get(report_id, [])
         if not groups:
@@ -122,6 +123,7 @@ def build_flex_report_group(
                     "spacing": "md",
                     "contents": [
                         {"type": "text", "text": report_title, "weight": "bold", "size": "md", "wrap": True},
+                        {"type": "text", "text": f"Mô tả: {report_decription}", "weight": "regular", "style": "italic", "size": "xs", "wrap": True},
                         {"type": "text", "text": f"Siêu thị: {store_id}", "size": "xs", "color": "#666666"},
                         {"type": "separator", "margin": "sm"},
                         {"type": "box", "layout": "vertical", "spacing": "sm", "contents": contents},
