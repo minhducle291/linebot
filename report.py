@@ -2,14 +2,12 @@ import pandas as pd
 from datetime import datetime
 from linebot.v3.messaging import TextMessage, ImageMessage
 from urllib.parse import urljoin
-from config import PUBLIC_BASE_URL, NHU_CAU_PATH, NHAP_BAN_PATH
 from utils import df_nhucau_to_image, df_nhapban_to_image, build_flex_text_message
 from cache import load_df_once
 
-
-def report_thongtinchiahang(store_id: str, cat_id: str, cat_name: str, group: str):
+def report_thongtinchiahang(data_path: str, public_base_url: str, store_id: str, cat_id: str, cat_name: str, group: str):
     messages = []
-    df = load_df_once(NHU_CAU_PATH)
+    df = load_df_once(data_path)
     ngay_cap_nhat = df['Ngày cập nhật'].iloc[0]
 
     df = df[df['Mã ngành hàng'] == int(cat_id)]
@@ -26,16 +24,15 @@ def report_thongtinchiahang(store_id: str, cat_id: str, cat_name: str, group: st
     group_label = f"Ngành hàng {cat_name}" if group == "Xem tất cả nhóm" else f"Nhóm hàng {group}"
     df_nhucau_to_image(df, outfile=out_path, title=f"Thông tin chia hàng của siêu thị {store_id}-{ten_sieu_thi}\n{group_label}\n(ngày cập nhật: {ngay_cap_nhat})")
 
-    img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
+    img_url = urljoin(public_base_url + "/", out_path)
     text = f"Thông tin chia hàng - ST: {store_id}\n{group_label}"
-    messages.append(build_flex_text_message(text, bg="#761414", fg="#FFFFFF", size="md", weight="regular"))
+    messages.append(build_flex_text_message(text, bg="#A7FEFF", fg="#000000", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
 
-
-def report_ketquabanhang(store_id: str, cat_id: str, cat_name: str, group: str):
+def report_ketquabanhang(data_path: str, public_base_url: str, store_id: str, cat_id: str, cat_name: str, group: str):
     messages = []
-    df = load_df_once(NHAP_BAN_PATH)
+    df = load_df_once(data_path)
     df = df.rename(columns={'Trạng thái':'Số chia hiện tại'})
     tu_ngay = df['Từ ngày'].iloc[0]
     den_ngay = df['Đến ngày'].iloc[0]
@@ -57,7 +54,8 @@ def report_ketquabanhang(store_id: str, cat_id: str, cat_name: str, group: str):
     group_label = f"Ngành hàng {cat_name}" if group == "Xem tất cả nhóm" else f"Nhóm hàng {group}"
     df_nhapban_to_image(df, outfile=out_path, title=f"Báo cáo kết quả bán hàng của siêu thị {store_id}-{ten_sieu_thi}\n{group_label}\n(đơn vị KG) (dữ liệu từ {tu_ngay} đến {den_ngay})")
 
-    img_url = urljoin(PUBLIC_BASE_URL + "/", out_path)
-    messages.append(build_flex_text_message(f"Kết quả bán hàng - ST: {store_id}\n{group_label}", bg="#761414", fg="#FFFFFF", size="md", weight="regular"))
+    img_url = urljoin(public_base_url + "/", out_path)
+    messages.append(build_flex_text_message(f"Kết quả bán hàng - ST: {store_id}\n{group_label}", bg="#A7FEFF", fg="#000000", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
+

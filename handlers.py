@@ -2,33 +2,16 @@ import pandas as pd
 from urllib.parse import parse_qs
 # LINE SDK v3
 from linebot.v3.messaging import TextMessage, FlexMessage
-from linebot.v3.messaging.models import FlexContainer  # dùng để ép dict -> FlexContainer
+from linebot.v3.messaging.models import FlexContainer
 
+from cache import load_df_once
 from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message
-from report import report_thongtinchiahang, report_ketquabanhang
-from config import NHU_CAU_PATH, NHAP_BAN_PATH
+from config import PUBLIC_BASE_URL, NHU_CAU_PATH, REPORTS_DISPLAY, DATA_PATH_FOR_REPORT, REPORT_HANDLERS, CATEGORIES
 
-# ===== CẤU HÌNH HIỂN THỊ BÁO CÁO =====
-REPORTS_DISPLAY = [
-    {"id": "thongtinchiahang", "title": "Thông tin chia hàng", "decription": "Số lượng chia mỗi ngày theo sản phẩm."},
-    {"id": "ketquabanhang",    "title": "Kết quả bán hàng", "decription": "Chỉ số Nhu cầu - PO - Nhập - Bán trong 7 ngày gần nhất."}
-]
-
-REPORT_HANDLERS = {
-    "thongtinchiahang": report_thongtinchiahang,
-    "ketquabanhang":    report_ketquabanhang
-}
-
-CATEGORIES = [
-    {"id": 1234,  "title": "Rau Củ Các Loại"},
-    {"id": 1235,  "title": "Trái Cây Các Loại"},
-    {"id": 1236,  "title": "Thịt Gia Cầm Gia Súc Các Loại"},
-    {"id": 1254,  "title": "Thủy Hải Sản Các Loại"},
-]
 # ===== NHÓM HÀNG  =====
 VALID_GROUPS = []
 def get_groups_for_category(cat_id: int):
-    df_nhucau = pd.read_parquet(NHU_CAU_PATH)
+    df_nhucau = load_df_once(NHU_CAU_PATH)
     df_nhucau = df_nhucau[df_nhucau['Mã ngành hàng'] == int(cat_id)]
     subgroups = df_nhucau['Nhóm hàng'].dropna().astype(str).unique().tolist()
     subgroups.sort()
@@ -36,18 +19,16 @@ def get_groups_for_category(cat_id: int):
     return subgroups
 
 #====== DỮ LIỆU SIÊU THỊ ======
-df_sieuthi = pd.read_parquet(NHAP_BAN_PATH)
+df_sieuthi = load_df_once(NHU_CAU_PATH)
 lst_sieuthi = df_sieuthi['Mã siêu thị'].unique().tolist()
 
 # ====== XỬ LÝ TEXT ======
 def handle_user_message(user_text: str):
     user_text = (user_text or "").strip()
     # ---------- (1) TEXT COMMANDS ----------
-    # Bạn bổ sung các nhánh elif khác ở đây: 'help', 'menu', 'version', ...
 
     if user_text.lower() == "ping":
-        text = "This is Flex Message Simulator. Thank you for adding me as a friend.\nHãy nhập vào từ khoá thông tin cần hỗ trợ theo gợi ý bên dưới nhé"
-        return [build_flex_text_message(text, bg="#B5F1F5", fg="#0A0A0A", header_fg="#8A1C1C", size="md", weight="regular", header_text="Thông báo")]
+        return [TextMessage(text="pong")]
 
     # nếu là text khác mà KHÔNG phải toàn số -> coi như không phải mã siêu thị
     if not user_text.isdigit():
@@ -106,7 +87,13 @@ def handle_postback(data: str):
         # Gọi đúng report handler (đã map trong REPORT_HANDLERS)
         if report in REPORT_HANDLERS:
             handler_func = REPORT_HANDLERS[report]
-            messages.extend(handler_func(store_id=int(store), cat_id=cat_id, cat_name=cat_name, group=group))
+            data_path = DATA_PATH_FOR_REPORT[report]
+            messages.extend(handler_func(data_path=data_path,
+                                         public_base_url=PUBLIC_BASE_URL,
+                                         store_id=int(store),
+                                         cat_id=cat_id,
+                                         cat_name=cat_name,
+                                         group=group))
         else:
             messages.append(TextMessage(text=f"⚠️ Chưa có handler cho báo cáo: {report}"))
 
