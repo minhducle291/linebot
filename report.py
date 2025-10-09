@@ -26,7 +26,7 @@ def report_thongtinchiahang(data_path: str, public_base_url: str, store_id: str,
 
     img_url = urljoin(public_base_url + "/", out_path)
     text = f"Thông tin chia hàng - ST: {store_id}\n{group_label}"
-    messages.append(build_flex_text_message(text, bg="#A7FEFF", fg="#000000", size="md", weight="regular"))
+    messages.append(build_flex_text_message(text, bg="#FFFFFF", fg="#000000", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
 
@@ -55,7 +55,7 @@ def report_ketquabanhang(data_path: str, public_base_url: str, store_id: str, ca
     df_nhapban_to_image(df, outfile=out_path, title=f"Báo cáo kết quả bán hàng của siêu thị {store_id}-{ten_sieu_thi}\n{group_label}\n(đơn vị KG) (dữ liệu từ {tu_ngay} đến {den_ngay})")
 
     img_url = urljoin(public_base_url + "/", out_path)
-    messages.append(build_flex_text_message(f"Kết quả bán hàng - ST: {store_id}\n{group_label}", bg="#A7FEFF", fg="#000000", size="md", weight="regular"))
+    messages.append(build_flex_text_message(f"Kết quả bán hàng - ST: {store_id}\n{group_label}", bg="#FFFFFF", fg="#000000", size="md", weight="regular"))
     messages.append(ImageMessage(original_content_url=img_url, preview_image_url=img_url))
     return messages
 
