@@ -1,4 +1,5 @@
 import os
+from scheduler import init_scheduler
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
@@ -49,9 +50,12 @@ def on_message(event: MessageEvent):
     if _is_redelivery(event):
         print("[skip] redelivery message -> ignore")
         return "OK"
+
     text = (event.message.text or "").strip()
-    print(f"[message] from={getattr(getattr(event,'source',None),'user_id',None)} text={text!r}")
-    msgs = handle_user_message(text)
+    uid = getattr(getattr(event, "source", None), "user_id", None)
+
+    print(f"[message] from={uid} text={text!r}")
+    msgs = handle_user_message(text, user_id=uid)
     return reply(event, msgs)
 
 @handler.add(PostbackEvent)
@@ -97,4 +101,7 @@ def health_check():
     return "Bot is healthy", 200
 
 if __name__ == "__main__":
+    # khởi động lịch cố định
+    SCHED = init_scheduler()
+    # chạy web server
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))

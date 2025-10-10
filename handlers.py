@@ -6,29 +6,34 @@ from linebot.v3.messaging.models import FlexContainer
 
 from cache import load_df_once
 from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message, get_groups_for_category
-from config import PUBLIC_BASE_URL, NHU_CAU_PATH, REPORTS_DISPLAY, DATA_PATH_FOR_REPORT, REPORT_HANDLERS, CATEGORIES
+from config import PUBLIC_BASE_URL, NHU_CAU_PATH, NHAP_BAN_PATH, REPORTS_DISPLAY, DATA_PATH_FOR_REPORT, REPORT_HANDLERS, CATEGORIES
 
+df_nhap_ban = load_df_once(NHAP_BAN_PATH)
 #====== DỮ LIỆU SIÊU THỊ ======
 df_sieuthi = load_df_once(NHU_CAU_PATH)
 lst_sieuthi = df_sieuthi['Mã siêu thị'].unique().tolist()
 
 # ====== XỬ LÝ TEXT ======
-def handle_user_message(user_text: str):
+def handle_user_message(user_text: str, user_id: str = None):
     user_text = (user_text or "").strip()
     # ---------- (1) TEXT COMMANDS ----------
-
+    if user_text.strip().lower() == "/id":
+        return [TextMessage(text=f"Đây là user_id của bạn:\n{user_id}")]
+        
     if user_text.lower() == "ping":
         return [TextMessage(text="pong")]
 
     # nếu là text khác mà KHÔNG phải toàn số -> coi như không phải mã siêu thị
     if not user_text.isdigit():
         text = "Hãy gửi [Mã siêu thị] hoặc chia sẻ [Vị trí] của bạn để xem báo cáo nhé!"
-        return [build_flex_text_message(text, bg="#038d38", fg="#FFFFFF", header_fg="#FFFFFF", size="md", weight="regular", header_text="💡Hướng dẫn")]
+        return [build_flex_text_message(text, bg="#038d38", fg="#FFFFFF", header_fg="#FFFFFF",
+                                        size="md", weight="regular", header_text="💡Hướng dẫn")]
     # ---------- (2) NUMBER = MÃ SIÊU THỊ ----------
     store_id = int(user_text)
     if store_id not in lst_sieuthi:
         text = "[Mã siêu thị] không tồn tại!\nVui lòng kiểm tra lại!"
-        return [build_flex_text_message(text, bg="#761414", fg="#FFFFFF", header_fg="#FFFFFF", size="md", weight="regular", header_text="⚠️ Cảnh báo")]
+        return [build_flex_text_message(text, bg="#761414", fg="#FFFFFF", header_fg="#FFFFFF",
+                                        size="md", weight="regular", header_text="⚠️ Cảnh báo")]
 
     # Flex: CHỌN NGÀNH HÀNG (4 nút)
     cat_flex = build_flex_categories(store_id, CATEGORIES, include_display_text=False)
