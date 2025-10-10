@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-import matplotlib
+import matplotlib, os
 from linebot.v3.messaging import FlexMessage, FlexContainer
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import os
+from cache import load_df_once
 
 def build_flex_categories(
     store_id: int,
@@ -341,4 +341,10 @@ def nearest_stores(lat, lon, k=3, max_km=30):
     return _LOCATOR.nearest(lat, lon, k=k, max_km=max_km)
 # endregion
 
-
+def get_groups_for_category(data_path: str, cat_id: int):
+    df_nhucau = load_df_once(data_path)
+    df_nhucau = df_nhucau[df_nhucau['Mã ngành hàng'] == int(cat_id)]
+    subgroups = df_nhucau['Nhóm hàng'].dropna().astype(str).unique().tolist()
+    subgroups.sort()
+    subgroups.append("Xem tất cả nhóm")
+    return subgroups

@@ -5,18 +5,8 @@ from linebot.v3.messaging import TextMessage, FlexMessage
 from linebot.v3.messaging.models import FlexContainer
 
 from cache import load_df_once
-from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message
+from utils import build_flex_categories, build_flex_report_group, nearest_stores, build_flex_text_message, get_groups_for_category
 from config import PUBLIC_BASE_URL, NHU_CAU_PATH, REPORTS_DISPLAY, DATA_PATH_FOR_REPORT, REPORT_HANDLERS, CATEGORIES
-
-# ===== NHÓM HÀNG  =====
-VALID_GROUPS = []
-def get_groups_for_category(cat_id: int):
-    df_nhucau = load_df_once(NHU_CAU_PATH)
-    df_nhucau = df_nhucau[df_nhucau['Mã ngành hàng'] == int(cat_id)]
-    subgroups = df_nhucau['Nhóm hàng'].dropna().astype(str).unique().tolist()
-    subgroups.sort()
-    subgroups.append("Xem tất cả nhóm")
-    return subgroups
 
 #====== DỮ LIỆU SIÊU THỊ ======
 df_sieuthi = load_df_once(NHU_CAU_PATH)
@@ -57,7 +47,8 @@ def handle_postback(data: str):
         store_id = int(qs.get("store", ["0"])[0] or 0)
         cat_id   = int(qs.get("cat",   ["0"])[0] or 0)
 
-        VALID_GROUPS = get_groups_for_category(cat_id)
+        # =========== NHÓM HÀNG ==================
+        VALID_GROUPS = get_groups_for_category(NHU_CAU_PATH, cat_id)
 
         # Build Flex "chọn báo cáo & nhóm hàng" (dùng cùng groups cho mọi report)
         groups_by_report = {r["id"]: VALID_GROUPS for r in REPORTS_DISPLAY}
