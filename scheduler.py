@@ -12,9 +12,8 @@ CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
 
 # ====== CẤU HÌNH CƠ BẢN ======
 THOI_GIAN_GUI_TIN_NHAN = [
-    {"hour": 7, "minute": 30},
-    {"hour": 9, "minute": 0},
-    {"hour": 15, "minute": 48},
+    {"hour": 5, "minute": 30},
+    {"hour": 7, "minute": 0}
 ]
 
 XLSX_PATH  = os.getenv("SCHEDULE_XLSX", "./data/schedule.xlsx")
